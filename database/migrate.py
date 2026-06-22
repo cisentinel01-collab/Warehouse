@@ -25,7 +25,7 @@ def migrate():
 
     # Check if any admin exists. If not, create the default one.
     res = db.execute_query("SELECT COUNT(*) as count FROM users WHERE role = %s", ('admin',))
-    if res[0]['count'] == 0:
+    if res and res[0]['count'] == 0:
         print("Creating default admin...")
         user_model.create_user({
             "username": "admin",
@@ -36,7 +36,7 @@ def migrate():
 
     # Check for warehouse_manager
     res = db.execute_query("SELECT COUNT(*) as count FROM users WHERE role = %s", ('warehouse_manager',))
-    if res[0]['count'] == 0:
+    if res and res[0]['count'] == 0:
         print("Creating default manager...")
         user_model.create_user({
             "username": "manager",
@@ -47,7 +47,7 @@ def migrate():
 
     # Check for follow_up
     res = db.execute_query("SELECT COUNT(*) as count FROM users WHERE role = %s", ('follow_up',))
-    if res[0]['count'] == 0:
+    if res and res[0]['count'] == 0:
         print("Creating default follow-up user...")
         user_model.create_user({
             "username": "user",
