@@ -17,13 +17,21 @@ class ReportController:
         self.pdf_gen = PDFGenerator()
         self.settings_model = Settings()
 
-    def export_inventory_to_excel(self):
+    def export_inventory_to_excel(self, is_low_stock=False):
         items = self.item_model.get_all_with_location()
+        if is_low_stock:
+            items = [i for i in items if i['current_stock'] < i['min_stock']]
+            title = "تقرير النواقص"
+            prefix = "نواقص"
+        else:
+            title = "تقرير المخزون الحالي"
+            prefix = "مخزون"
+
         headers = ["كود الصنف", "اسم الصنف", "الفئة", "الموقع", "الكمية الحالية", "الحد الأدنى"]
         data = [[i['code'], i['name'], i['category'], i['location_name'], i['current_stock'], i['min_stock']] for i in items]
 
-        filename = f"reports/inventory_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx"
-        self.excel_gen.export_data(filename, headers, data, "تقرير المخزون الحالي")
+        filename = f"reports/{prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        self.excel_gen.export_data(filename, headers, data, title)
         return filename
 
     def export_movements_to_excel(self, type=None, start_date=None, end_date=None):
@@ -35,19 +43,32 @@ class ReportController:
             data.append([m['date'], "وارد" if m['type'] == 'IN' else "صادر", m['reference_no'], party, m['notes']])
 
         title = "تقرير حركة المخزن"
-        if type == 'IN': title = "تقرير الوارد"
-        elif type == 'OUT': title = "تقرير الصادر"
+        prefix = "حركة"
+        if type == 'IN':
+            title = "تقرير الوارد"
+            prefix = "وارد"
+        elif type == 'OUT':
+            title = "تقرير الصادر"
+            prefix = "صادر"
 
-        filename = f"reports/movements_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx"
+        filename = f"reports/{prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
         self.excel_gen.export_data(filename, headers, data, title)
         return filename
 
-    def export_inventory_to_pdf(self):
+    def export_inventory_to_pdf(self, is_low_stock=False):
         items = self.item_model.get_all_with_location()
+        if is_low_stock:
+            items = [i for i in items if i['current_stock'] < i['min_stock']]
+            title = "تقرير النواقص"
+            prefix = "نواقص"
+        else:
+            title = "تقرير المخزون الحالي"
+            prefix = "مخزون"
+
         headers = ["كود الصنف", "اسم الصنف", "الفئة", "الموقع", "الكمية", "الحد الأدنى"]
         data = [[i['code'], i['name'], i['category'], i['location_name'], i['current_stock'], i['min_stock']] for i in items]
-        filename = f"reports/inventory_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
-        self.pdf_gen.generate_report(filename, "تقرير المخزون الحالي", headers, data, self.settings_model.get_settings())
+        filename = f"reports/{prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+        self.pdf_gen.generate_report(filename, title, headers, data, self.settings_model.get_settings())
         return filename
 
     def export_movements_to_pdf(self, type=None):
@@ -59,9 +80,15 @@ class ReportController:
             data.append([m['date'], "وارد" if m['type'] == 'IN' else "صادر", m['reference_no'], party, m['final_total']])
 
         title = "تقرير حركة المخزن"
-        if type == 'IN': title = "تقرير الوارد"
-        elif type == 'OUT': title = "تقرير الصادر"
-        filename = f"reports/movements_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
+        prefix = "حركة"
+        if type == 'IN':
+            title = "تقرير الوارد"
+            prefix = "وارد"
+        elif type == 'OUT':
+            title = "تقرير الصادر"
+            prefix = "صادر"
+
+        filename = f"reports/{prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
         self.pdf_gen.generate_report(filename, title, headers, data, self.settings_model.get_settings())
         return filename
 
@@ -69,7 +96,7 @@ class ReportController:
         logs = self.audit_log.get_logs(500)
         headers = ["التاريخ", "المستخدم", "العملية", "الجدول", "المعرف"]
         data = [[l['timestamp'], l['user_name'], l['action'], l['table_name'], l['record_id']] for l in logs]
-        filename = f"reports/audit_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
+        filename = f"reports/سجل_النشاط_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
         self.pdf_gen.generate_report(filename, "سجل نشاط المستخدمين", headers, data, self.settings_model.get_settings())
         return filename
 
@@ -79,12 +106,14 @@ class ReportController:
         if expired_only:
             batches = batch_model.get_expired()
             title = "تقرير الأصناف منتهية الصلاحية"
+            prefix = "منتهية"
         else:
             batches = batch_model.get_expiring_soon(6)
             title = "تقرير الأصناف التي ستنتهي قريباً"
+            prefix = "تنتهي_قريبا"
 
         headers = ["الصنف", "التشغيلة", "الكمية", "تاريخ الانتهاء"]
         data = [[b['item_name'], b['batch_number'], b['quantity'], str(b['expiry_date'])] for b in batches]
-        filename = f"reports/expiry_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
+        filename = f"reports/{prefix}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
         self.pdf_gen.generate_report(filename, title, headers, data, self.settings_model.get_settings())
         return filename

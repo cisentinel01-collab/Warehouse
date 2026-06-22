@@ -228,20 +228,64 @@ class PDFGenerator:
         doc.build(elements)
 
     def generate_report(self, filename, title, headers, data, company_info):
-        doc = SimpleDocTemplate(filename, pagesize=A4)
+        from reportlab.lib.units import inch
+        doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
         elements = []
 
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
+        style_title = ParagraphStyle(
             'TitleStyle', parent=styles['Normal'], fontName='Cairo-Bold' if self.font_name == 'Cairo' else 'Helvetica-Bold',
-            alignment=1, fontSize=18, spaceAfter=20
+            fontSize=20, alignment=1, textColor=colors.HexColor("#1a2a6c"), spaceAfter=15
+        )
+        style_company = ParagraphStyle(
+            'CompanyStyle', parent=styles['Normal'], fontName='Cairo-Bold' if self.font_name == 'Cairo' else 'Helvetica-Bold',
+            fontSize=14, alignment=1, textColor=colors.HexColor("#d4af37")
+        )
+        style_contact = ParagraphStyle(
+            'ContactStyle', parent=styles['Normal'], fontName=self.font_name,
+            fontSize=9, alignment=1, textColor=colors.grey
         )
 
-        elements.append(Paragraph(self._prepare_arabic(title), title_style))
+        # 1. Header (Consistent with Invoice)
+        logo_path = "logo/logo.png"
+        if not os.path.exists(logo_path) and company_info and company_info.get('logo_path'):
+            logo_path = company_info['logo_path']
 
+        logo_img = ""
+        if os.path.exists(logo_path):
+            try:
+                logo_img = Image(logo_path, width=0.8*inch, height=0.8*inch)
+            except: pass
+
+        company_name = company_info.get('company_name', 'American Marine Services Free-Zone')
+        company_addr = company_info.get('address', '')
+        phone = company_info.get('phone', '')
+        email = company_info.get('email', '')
+        company_contact = f"هاتف: {phone} | بريد: {email}" if phone or email else ""
+
+        header_content = [
+            [logo_img],
+            [Paragraph(self._prepare_arabic(company_name, is_english=True), style_company)],
+            [Paragraph(self._prepare_arabic(company_addr), style_contact)],
+            [Paragraph(self._prepare_arabic(company_contact), style_contact)],
+        ]
+
+        header_table = Table(header_content, colWidths=[doc.width])
+        header_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(Table([[""]], colWidths=[doc.width], style=[('LINEBELOW', (0,0), (-1,-1), 1.5, colors.HexColor("#1a2a6c"))]))
+        elements.append(Spacer(1, 0.2*inch))
+
+        # 2. Title
+        elements.append(Paragraph(self._prepare_arabic(title), style_title))
+        elements.append(Spacer(1, 0.2*inch))
+
+        # 3. Table
         table_data = []
+        # Prepare headers with Arabic reshaping
         header_row = [self._prepare_arabic(h) for h in headers]
-        header_row.reverse()
+        header_row.reverse() # RTL handling for table columns
         table_data.append(header_row)
 
         for row in data:
@@ -249,14 +293,29 @@ class PDFGenerator:
             data_row.reverse()
             table_data.append(data_row)
 
-        table = Table(table_data, colWidths=[(A4[0]-100)/len(headers)] * len(headers))
+        # Calculate column widths
+        num_cols = len(headers)
+        avail_width = doc.width
+        col_width = avail_width / num_cols
+
+        table = Table(table_data, colWidths=[col_width] * num_cols, repeatRows=1)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1a2a6c")),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1,-1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, -1), self.font_name),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTNAME', (0, 0), (-1, 0), 'Cairo-Bold' if self.font_name == 'Cairo' else 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ]))
         elements.append(table)
+
+        # 4. Footer
+        elements.append(Spacer(1, 0.4*inch))
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        footer_text = f"تم استخراج التقرير في: {ts}"
+        elements.append(Paragraph(self._prepare_arabic(footer_text), style_contact))
 
         doc.build(elements)

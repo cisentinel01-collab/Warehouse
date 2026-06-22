@@ -5,7 +5,7 @@ class ExcelGenerator:
     def export_data(self, filename, headers, data, title="Report"):
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Data"
+        ws.title = "التقرير"
         ws.sheet_view.rightToLeft = True
 
         # Style for header
