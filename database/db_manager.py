@@ -1,8 +1,12 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
+from dotenv import load_dotenv
 
 from psycopg2 import pool
+
+# Load environment variables from .env file
+load_dotenv()
 
 class DBManager:
     _instance = None
@@ -25,13 +29,20 @@ class DBManager:
         return cls._instance
 
     def get_connection(self):
+        if not self._pool:
+            raise ConnectionError("Database connection pool is not initialized. Please check your DB settings.")
         return self._pool.getconn()
 
     def release_connection(self, conn):
-        self._pool.putconn(conn)
+        if self._pool and conn:
+            self._pool.putconn(conn)
 
     def execute_query(self, query, params=(), commit=False):
-        conn = self.get_connection()
+        try:
+            conn = self.get_connection()
+        except ConnectionError as ce:
+            print(f"DB Error: {ce}")
+            return []
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(query, params)

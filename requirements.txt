@@ -1,0 +1,8 @@
+PySide6
+psycopg2-binary
+qtawesome
+reportlab
+pandas
+openpyxl
+bcrypt
+python-dotenv
