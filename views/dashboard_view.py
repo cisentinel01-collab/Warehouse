@@ -10,15 +10,28 @@ class DashboardView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        main_vbox = QVBoxLayout(self)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.refresh()
+
+    def refresh(self):
+        # Clear existing layout
+        while self.main_layout.count():
+            item = self.main_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            else:
+                # If it's a layout, we'd need recursive deletion but here we just clear the main scroll area
+                pass
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         content_widget = QWidget()
-        main_layout = QVBoxLayout(content_widget)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(40) # Increased comfort spacing
+        layout = QVBoxLayout(content_widget)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(40)
 
         stats = self.controller.get_dashboard_stats()
 
@@ -32,21 +45,21 @@ class DashboardView(QWidget):
         self.add_card(cards_layout, "أصناف منتهية", str(stats['expired_count']), "fa5s.calendar-times", "#c0392b", 0, 3)
         self.add_card(cards_layout, "تنتهي قريباً", str(stats['expiring_count']), "fa5s.calendar-day", "#f39c12", 0, 4)
 
-        main_layout.addLayout(cards_layout)
+        layout.addLayout(cards_layout)
 
         # 2. Financial Summary Row
         fin_layout = QHBoxLayout()
         fin_layout.setSpacing(20)
         self.add_stat_box(fin_layout, "إجمالي الوارد (قيمة المشتريات)", f"{stats['total_in']:,.2f}", "#2ecc71", "fa5s.arrow-down")
         self.add_stat_box(fin_layout, "إجمالي الصادر (قيمة المنصرف)", f"{stats['total_out']:,.2f}", "#3498db", "fa5s.arrow-up")
-        main_layout.addLayout(fin_layout)
+        layout.addLayout(fin_layout)
 
         # 3. Performance Row
         perf_layout = QHBoxLayout()
         perf_layout.setSpacing(20)
         self.add_info_card(perf_layout, "المنتج الأكثر سحباً", stats['top_item'], "fa5s.fire", "#e67e22")
         self.add_info_card(perf_layout, "المورد الأكثر تعاملاً", stats['top_supplier'], "fa5s.handshake", "#9b59b6")
-        main_layout.addLayout(perf_layout)
+        layout.addLayout(perf_layout)
 
         # 4. Detailed Sections
         details_layout = QHBoxLayout()
@@ -130,17 +143,17 @@ class DashboardView(QWidget):
         act_title.setObjectName("CardTitle")
         act_layout.addWidget(act_title)
 
-        self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["الوقت", "المستخدم", "العملية"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionMode(QTableWidget.NoSelection)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setStyleSheet("border: none; background: transparent;")
+        self.activity_table = QTableWidget()
+        self.activity_table.setColumnCount(3)
+        self.activity_table.setHorizontalHeaderLabels(["الوقت", "المستخدم", "العملية"])
+        self.activity_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.activity_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.activity_table.setSelectionMode(QTableWidget.NoSelection)
+        self.activity_table.verticalHeader().setVisible(False)
+        self.activity_table.setStyleSheet("border: none; background: transparent;")
 
         logs = self.controller.get_recent_activities()
-        self.table.setRowCount(len(logs))
+        self.activity_table.setRowCount(len(logs))
         for row, log in enumerate(logs):
             ts = log['timestamp']
             if hasattr(ts, 'strftime'):
@@ -149,17 +162,17 @@ class DashboardView(QWidget):
                 ts_str = str(ts)
                 time_str = ts_str.split()[1] if ' ' in ts_str else ts_str
 
-            self.table.setItem(row, 0, QTableWidgetItem(time_str))
-            self.table.setItem(row, 1, QTableWidgetItem(log['user_name'] or "النظام"))
-            self.table.setItem(row, 2, QTableWidgetItem(log['action']))
+            self.activity_table.setItem(row, 0, QTableWidgetItem(time_str))
+            self.activity_table.setItem(row, 1, QTableWidgetItem(log['user_name'] or "النظام"))
+            self.activity_table.setItem(row, 2, QTableWidgetItem(log['action']))
 
-        act_layout.addWidget(self.table)
+        act_layout.addWidget(self.activity_table)
         details_layout.addWidget(activity_frame, 2)
 
-        main_layout.addLayout(details_layout)
+        layout.addLayout(details_layout)
 
         scroll.setWidget(content_widget)
-        main_vbox.addWidget(scroll)
+        self.main_layout.addWidget(scroll)
 
     def add_card(self, layout, title, value, icon, color, r, c):
         card = QFrame()

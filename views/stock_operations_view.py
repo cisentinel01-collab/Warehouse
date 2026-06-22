@@ -166,6 +166,8 @@ class StockOperationsView(QWidget):
         add_item_btn.setObjectName("GoldButton")
         add_item_btn.setMinimumHeight(55)
         add_item_btn.setIcon(qta.icon("fa5s.plus-circle", color="black"))
+        from utils.auth import AuthManager
+        add_item_btn.setEnabled(AuthManager.has_permission(self.op_type.lower(), 'submit'))
         add_item_btn.clicked.connect(self.add_item_to_list)
         selector_grid.addWidget(add_item_btn, 3, 2, 1, 2)
 

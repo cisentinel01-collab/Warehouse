@@ -57,14 +57,13 @@ class ItemsView(QWidget):
         add_btn.setObjectName("PrimaryButton")
         add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
         from utils.auth import AuthManager
-        if not AuthManager.has_permission('items', 'add'):
-            add_btn.setEnabled(False)
-
+        add_btn.setEnabled(AuthManager.has_permission('items', 'add'))
         add_btn.clicked.connect(self.show_add_dialog)
         toolbar.addWidget(add_btn)
 
         import_btn = QPushButton("استيراد من Excel")
         import_btn.setObjectName("SecondaryButton")
+        import_btn.setEnabled(AuthManager.has_permission('items', 'add'))
         import_btn.clicked.connect(self.handle_import)
         toolbar.addWidget(import_btn)
 
@@ -115,12 +114,14 @@ class ItemsView(QWidget):
 
             edit_btn = QPushButton("تعديل")
             edit_btn.setStyleSheet("background-color: #f39c12; color: white; border-radius: 5px; font-weight: bold;")
+            edit_btn.setEnabled(AuthManager.has_permission('items', 'can_edit'))
             edit_btn.clicked.connect(lambda _, i=item: self.show_edit_dialog(i))
 
             delete_btn = QPushButton()
             delete_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
             delete_btn.setFixedSize(30, 30)
             delete_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
+            delete_btn.setEnabled(AuthManager.has_permission('items', 'delete'))
             delete_btn.clicked.connect(lambda _, i=item: self.handle_delete(i))
 
             btns_layout.addWidget(edit_btn)
