@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 import qtawesome as qta
 from models.item import Item
 from models.supplier import Supplier
+from utils.auth import AuthManager
 
 class StockOperationsView(QWidget):
     data_changed = Signal()
@@ -166,7 +167,6 @@ class StockOperationsView(QWidget):
         add_item_btn.setObjectName("GoldButton")
         add_item_btn.setMinimumHeight(55)
         add_item_btn.setIcon(qta.icon("fa5s.plus-circle", color="black"))
-        from utils.auth import AuthManager
         add_item_btn.setEnabled(AuthManager.has_permission(self.op_type.lower(), 'submit'))
         add_item_btn.clicked.connect(self.add_item_to_list)
         selector_grid.addWidget(add_item_btn, 3, 2, 1, 2)
@@ -216,7 +216,6 @@ class StockOperationsView(QWidget):
         self.submit_btn = QPushButton("إتمام العملية وتوليد المستندات (PDF)")
         self.submit_btn.setObjectName("PrimaryButton")
         self.submit_btn.setFixedHeight(65)
-        from utils.auth import AuthManager
         if not AuthManager.has_permission(self.op_type.lower(), 'submit'):
             self.submit_btn.setEnabled(False)
             self.submit_btn.setToolTip("لا تملك صلاحية تنفيذ هذه العملية")
@@ -454,6 +453,10 @@ class StockOperationsView(QWidget):
         self.update_summary()
 
     def handle_submit(self):
+        if not AuthManager.has_permission(self.op_type.lower(), 'submit'):
+            QMessageBox.warning(self, "تنبيه", "لا تملك صلاحية تنفيذ هذه العملية")
+            return
+
         if not self.items_to_move:
             QMessageBox.warning(self, "تنبيه", "يرجى إضافة أصناف أولاً")
             return

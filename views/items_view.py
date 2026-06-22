@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt, Signal, QTimer
 import qtawesome as qta
 import os
+from utils.auth import AuthManager
 
 class ItemsView(QWidget):
     data_changed = Signal()
@@ -56,7 +57,6 @@ class ItemsView(QWidget):
         add_btn = QPushButton("إضافة صنف جديد")
         add_btn.setObjectName("PrimaryButton")
         add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
-        from utils.auth import AuthManager
         add_btn.setEnabled(AuthManager.has_permission('items', 'add'))
         add_btn.clicked.connect(self.show_add_dialog)
         toolbar.addWidget(add_btn)
@@ -139,7 +139,6 @@ class ItemsView(QWidget):
         self.refresh()
 
     def handle_delete(self, item):
-        from utils.auth import AuthManager
         if not AuthManager.has_permission('items', 'delete'):
             QMessageBox.warning(self, "تنبيه", "لا تملك صلاحية الحذف")
             return
@@ -174,7 +173,6 @@ class ItemsView(QWidget):
             self.data_changed.emit()
 
     def show_edit_dialog(self, item):
-        from utils.auth import AuthManager
         if not AuthManager.has_permission('items', 'can_edit'):
             QMessageBox.warning(self, "تنبيه", "لا تملك صلاحية التعديل")
             return
