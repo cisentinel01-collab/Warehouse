@@ -107,7 +107,11 @@ class StockOperationsView(QWidget):
         self.item_combo.setEditable(True)
         self.item_combo.setMinimumHeight(50)
         self.item_combo.setPlaceholderText("اختر صنف أو ابحث بالكود...")
-        # load_items handles signal connections
+
+        # Connect signals once here
+        self.item_combo.lineEdit().textChanged.connect(self.on_item_combo_text_changed)
+        self.item_combo.currentIndexChanged.connect(self.handle_item_selection_change)
+
         self.load_items()
 
         scan_item_btn = QPushButton()
@@ -332,22 +336,6 @@ class StockOperationsView(QWidget):
             self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
         self.item_combo.blockSignals(False)
 
-        # Connect signals only once if not already connected
-        # Using a safer connection approach
-        line_edit = self.item_combo.lineEdit()
-        if line_edit:
-            try:
-                line_edit.textChanged.disconnect(self.on_item_combo_text_changed)
-            except (TypeError, RuntimeError):
-                pass
-            line_edit.textChanged.connect(self.on_item_combo_text_changed)
-
-        try:
-            self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
-        except (TypeError, RuntimeError):
-            pass
-        self.item_combo.currentIndexChanged.connect(self.handle_item_selection_change)
-
     def on_item_combo_text_changed(self, text):
         if len(text) >= 2:
             self.item_search_timer.start(300)
@@ -373,10 +361,20 @@ class StockOperationsView(QWidget):
             self.items_to_move = []
             self.update_summary()
 
+    def refresh(self):
+        self.load_items()
+        self.load_history()
+
     def add_item_to_list(self):
         item_data = self.item_combo.currentData()
+
+        # Fallback: if no item selected in data, check if typed text is a valid code
         if not item_data:
-            QMessageBox.warning(self, "تنبيه", "يرجى اختيار صنف أولاً")
+            typed_text = self.item_combo.currentText().split(" - ")[0].strip()
+            item_data = Item().get_by_code(typed_text)
+
+        if not item_data:
+            QMessageBox.warning(self, "تنبيه", "يرجى اختيار صنف صحيح أولاً")
             return
         qty = self.qty_input.value()
         if qty <= 0: return
@@ -393,10 +391,19 @@ class StockOperationsView(QWidget):
 
         # Smart Duplicate Check
         existing_idx = -1
+        # For OUT, we still merge to same item to check total stock
+        # For IN, we merge if batch is the same (simplified: always check ID first)
         for idx, item in enumerate(self.items_to_move):
             if item['item_id'] == item_data['id']:
-                existing_idx = idx
-                break
+                # For IN, check if batch is different
+                if self.op_type == "IN":
+                    new_batch = self.batch_input.text() or "DEFAULT"
+                    if item.get('batch_info', {}).get('batch_number') == new_batch:
+                        existing_idx = idx
+                        break
+                else:
+                    existing_idx = idx
+                    break
 
         if existing_idx != -1:
             new_qty = self.items_to_move[existing_idx]['quantity'] + qty

@@ -61,3 +61,13 @@ class Item(BaseModel):
         """
         results = self.db.execute_query(query, (record_id,))
         return results[0] if results else None
+
+    def get_by_code(self, code):
+        query = """
+            SELECT items.*, locations.name as location_name
+            FROM items
+            LEFT JOIN locations ON items.location_id = locations.id
+            WHERE items.code = %s AND items.is_deleted = 0
+        """
+        results = self.db.execute_query(query, (code,))
+        return results[0] if results else None
