@@ -1,5 +1,6 @@
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
 
 class ExcelGenerator:
     def export_data(self, filename, headers, data, title="Report"):
@@ -30,15 +31,15 @@ class ExcelGenerator:
                 ws.cell(row=row_idx, column=col_idx, value=value).alignment = Alignment(horizontal="center")
 
         # adjust column width
-        for column in ws.columns:
+        for i, column in enumerate(ws.columns, 1):
             max_length = 0
-            column_letter = column[0].column_letter
+            column_letter = get_column_letter(i)
             for cell in column:
                 try:
-                    if len(str(cell.value)) > max_length:
+                    if cell.value and len(str(cell.value)) > max_length:
                         max_length = len(str(cell.value))
                 except: pass
-            ws.column_dimensions[column_letter].width = max_length + 2
+            ws.column_dimensions[column_letter].width = max_length + 5
 
         wb.save(filename)
         return filename
