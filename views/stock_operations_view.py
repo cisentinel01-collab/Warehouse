@@ -324,7 +324,11 @@ class StockOperationsView(QWidget):
 
     def load_items(self):
         # Disconnect signal to prevent multiple triggers during loading
-        self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
+        try:
+            self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
+        except (TypeError, RuntimeError):
+            pass
+
         self.item_combo.clear()
         # Load only top 50 items initially to avoid freeze
         items = Item().get_all_with_location(limit=50)
@@ -332,6 +336,11 @@ class StockOperationsView(QWidget):
             self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
 
         # Connect to lineEdit for search as user types
+        # Check if already connected to avoid duplicate connections
+        try:
+            self.item_combo.lineEdit().textChanged.disconnect(self.on_item_combo_text_changed)
+        except (TypeError, RuntimeError):
+            pass
         self.item_combo.lineEdit().textChanged.connect(self.on_item_combo_text_changed)
         self.item_combo.currentIndexChanged.connect(self.handle_item_selection_change)
 
@@ -345,7 +354,11 @@ class StockOperationsView(QWidget):
         items = Item().search(text) # Items model search already filters 0-deleted
 
         # Update combo box items but keep current text
-        self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
+        try:
+            self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
+        except (TypeError, RuntimeError):
+            pass
+
         self.item_combo.clear()
         for i in items[:50]:
             self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
