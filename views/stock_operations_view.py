@@ -107,8 +107,8 @@ class StockOperationsView(QWidget):
         self.item_combo.setEditable(True)
         self.item_combo.setMinimumHeight(50)
         self.item_combo.setPlaceholderText("اختر صنف أو ابحث بالكود...")
+        # load_items handles signal connections
         self.load_items()
-        self.item_combo.currentIndexChanged.connect(self.handle_item_selection_change)
 
         scan_item_btn = QPushButton()
         scan_item_btn.setIcon(qta.icon("fa5s.qrcode", color="#1a2a6c"))
@@ -323,25 +323,29 @@ class StockOperationsView(QWidget):
             QMessageBox.warning(self, "تنبيه", "الصنف غير موجود في القائمة")
 
     def load_items(self):
-        # Disconnect signal to prevent multiple triggers during loading
-        try:
-            self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
-        except (TypeError, RuntimeError):
-            pass
-
+        # Use blockSignals to prevent triggers during batch updates
+        self.item_combo.blockSignals(True)
         self.item_combo.clear()
         # Load only top 50 items initially to avoid freeze
         items = Item().get_all_with_location(limit=50)
         for i in items:
             self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
+        self.item_combo.blockSignals(False)
 
-        # Connect to lineEdit for search as user types
-        # Check if already connected to avoid duplicate connections
+        # Connect signals only once if not already connected
+        # Using a safer connection approach
+        line_edit = self.item_combo.lineEdit()
+        if line_edit:
+            try:
+                line_edit.textChanged.disconnect(self.on_item_combo_text_changed)
+            except (TypeError, RuntimeError):
+                pass
+            line_edit.textChanged.connect(self.on_item_combo_text_changed)
+
         try:
-            self.item_combo.lineEdit().textChanged.disconnect(self.on_item_combo_text_changed)
+            self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
         except (TypeError, RuntimeError):
             pass
-        self.item_combo.lineEdit().textChanged.connect(self.on_item_combo_text_changed)
         self.item_combo.currentIndexChanged.connect(self.handle_item_selection_change)
 
     def on_item_combo_text_changed(self, text):
@@ -350,20 +354,18 @@ class StockOperationsView(QWidget):
 
     def perform_item_search(self):
         text = self.item_combo.currentText()
-        # If it's a code or name search
-        items = Item().search(text) # Items model search already filters 0-deleted
+        if not text:
+            return
 
-        # Update combo box items but keep current text
-        try:
-            self.item_combo.currentIndexChanged.disconnect(self.handle_item_selection_change)
-        except (TypeError, RuntimeError):
-            pass
+        items = Item().search(text)
 
+        # Block signals to update list without triggering selection changes
+        self.item_combo.blockSignals(True)
         self.item_combo.clear()
         for i in items[:50]:
             self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
         self.item_combo.setEditText(text)
-        self.item_combo.currentIndexChanged.connect(self.handle_item_selection_change)
+        self.item_combo.blockSignals(False)
 
     def clear_list(self):
         if self.items_to_move:
