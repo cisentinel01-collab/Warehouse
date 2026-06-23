@@ -1,0 +1,20 @@
+from app.repositories.base_repository import BaseRepository
+from app.models.orm_models import Item, User
+from sqlalchemy.orm import Session
+
+class ItemRepository(BaseRepository[Item]):
+    def __init__(self, db: Session):
+        super().__init__(Item, db)
+
+    def get_by_code(self, code: str) -> Item:
+        return self.db.query(Item).filter(Item.code == code).first()
+
+    def get_low_stock(self) -> list[Item]:
+        return self.db.query(Item).filter(Item.current_stock <= Item.min_stock, Item.is_deleted == False).all()
+
+class UserRepository(BaseRepository[User]):
+    def __init__(self, db: Session):
+        super().__init__(User, db)
+
+    def get_by_username(self, username: str) -> User:
+        return self.db.query(User).filter(User.username == username).first()

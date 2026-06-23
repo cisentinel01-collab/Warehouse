@@ -1,0 +1,17 @@
+{
+  "dashboard": "الرئيسية",
+  "items": "الأصناف",
+  "suppliers": "الموردين",
+  "stock_in": "الوارد",
+  "stock_out": "الصادر",
+  "reports": "التقارير",
+  "settings": "الإعدادات",
+  "save": "حفظ",
+  "cancel": "إلغاء",
+  "add_new_item": "إضافة صنف جديد",
+  "item_code": "كود الصنف",
+  "item_name": "اسم الصنف",
+  "category": "الفئة",
+  "current_stock": "المخزون الحالي",
+  "min_stock": "الحد الأدنى"
+}

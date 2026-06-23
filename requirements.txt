@@ -6,3 +6,12 @@ pandas
 openpyxl
 bcrypt
 python-dotenv
+SQLAlchemy>=2.0.0
+alembic
+pydantic-settings
+cachetools
+fastapi
+uvicorn
+arabic-reshaper
+python-bidi
+python-json-logger
