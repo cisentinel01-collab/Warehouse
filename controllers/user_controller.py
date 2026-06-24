@@ -1,5 +1,6 @@
 from services.auth_service import AuthService
 from sqlalchemy.orm import Session
+from app_logging.app_logger import app_logger
 
 class UserController:
     def __init__(self, db: Session):
@@ -7,15 +8,10 @@ class UserController:
 
     def get_all_users(self):
         """Standardized method name for UserManagementView"""
-        return self.service.user_repo.get_all()
+        return self.service.get_users()
 
     def add_user(self, data):
         return self.service.register(data)
 
     def delete_user(self, user_id):
-        user = self.service.user_repo.get_by_id(user_id)
-        if user:
-            user.is_active = False
-            self.service.user_repo.db.commit()
-            return True
-        return False
+        return self.service.deactivate_user(user_id)

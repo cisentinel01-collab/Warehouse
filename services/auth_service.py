@@ -1,39 +1,37 @@
-import bcrypt
-from typing import Optional
-from sqlalchemy.orm import Session
-from repositories.item_user_repo import UserRepository
+from typing import List, Optional
 from models.user import User
+from repositories.item_user_repo import UserRepository
+from utils.auth import AuthManager
 from app_logging.app_logger import app_logger
+import bcrypt
+from sqlalchemy.orm import Session
 
 class AuthService:
     def __init__(self, db: Session):
         self.user_repo = UserRepository(db)
         self.db = db
 
-    def hash_password(self, password: str) -> str:
-        salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
-
-    def verify_password(self, password: str, hashed: str) -> bool:
-        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
-
-    def authenticate(self, username: str, password: str) -> Optional[User]:
+    def authenticate(self, username, password) -> Optional[User]:
         user = self.user_repo.get_by_username(username)
-        if user and self.verify_password(password, user.password_hash):
-            if not user.is_active:
-                app_logger.warning(f"Inactive user login attempt: {username}")
-                return None
-            app_logger.info(f"User authenticated: {username}")
-            return user
-        app_logger.warning(f"Failed login attempt: {username}")
+        if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            if user.status == 'active':
+                return user
         return None
 
-    def create_user(self, username: str, password: str, full_name: str, role: str) -> User:
-        hashed = self.hash_password(password)
-        new_user = User(
-            username=username,
-            password_hash=hashed,
-            full_name=full_name,
-            role=role
-        )
+    def register(self, user_data: dict) -> User:
+        pwd = user_data.pop('password')
+        hashed = bcrypt.hashpw(pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        user_data['password_hash'] = hashed
+        new_user = User(**user_data)
         return self.user_repo.create(new_user)
+
+    def get_users(self) -> List[User]:
+        return self.user_repo.get_all()
+
+    def deactivate_user(self, user_id: int) -> bool:
+        user = self.user_repo.get_by_id(user_id)
+        if user:
+            user.status = 'inactive'
+            self.db.commit()
+            return True
+        return False

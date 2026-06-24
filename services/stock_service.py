@@ -2,14 +2,15 @@ from sqlalchemy.orm import Session
 from models.inventory import Item, StockLot, StockQuant, Bin
 from models.accounting import Account, Journal
 from services.accounting_service import AccountingService
+from repositories.movement_repo import MovementRepository
 from app_logging.app_logger import app_logger
 from datetime import datetime
-from sqlalchemy.orm import Session
 
 class StockService:
     def __init__(self, db: Session):
         self.db = db
         self.accounting = AccountingService(db)
+        self.movement_repo = MovementRepository(db)
 
     def record_movement(self, movement_data: dict, items_list: list) -> bool:
         """
@@ -17,7 +18,6 @@ class StockService:
         items_list: list of {'item_id', 'qty', 'price', 'bin_id', 'lot_number', 'expiry'}
         """
         try:
-            # 1. Logic for Quants and Stock update
             total_value = 0.0
             for it in items_list:
                 item = self.db.query(Item).filter(Item.id == it['item_id']).first()
@@ -28,7 +28,6 @@ class StockService:
                 total_value += (qty * price)
 
                 if movement_data['type'] == 'IN':
-                    # Handle Lot
                     lot = self.db.query(StockLot).filter(
                         StockLot.item_id == item.id,
                         StockLot.lot_number == it.get('lot_number', 'DEFAULT')
@@ -41,7 +40,6 @@ class StockService:
                     lot.quantity += qty
                     item.current_stock += qty
 
-                    # Update Quant
                     quant = self.db.query(StockQuant).filter(
                         StockQuant.item_id == item.id, StockQuant.bin_id == it['bin_id'], StockQuant.lot_id == lot.id
                     ).first()
@@ -52,7 +50,6 @@ class StockService:
 
                 else: # OUT
                     item.current_stock -= qty
-                    # Simple Quant deduction (In real ERP, we'd loop through quants FIFO/FEFO)
                     quant = self.db.query(StockQuant).filter(
                         StockQuant.item_id == item.id, StockQuant.bin_id == it['bin_id']
                     ).first()
@@ -60,9 +57,8 @@ class StockService:
                         quant.quantity -= qty
 
             # 2. Automated Accounting Entry
-            # Find default accounts (In production, these come from category/settings)
-            inv_acc = self.db.query(Account).filter(Account.code == '1001').first() # Inventory
-            cogs_acc = self.db.query(Account).filter(Account.code == '5001').first() # COGS / Purchase
+            inv_acc = self.db.query(Account).filter(Account.code == '1001').first()
+            cogs_acc = self.db.query(Account).filter(Account.code == '5001').first()
 
             if inv_acc and cogs_acc:
                 journal = self.db.query(Journal).filter(Journal.code == 'STK').first()
@@ -90,3 +86,6 @@ class StockService:
             self.db.rollback()
             app_logger.error(f"Movement failed: {e}")
             raise e
+
+    def get_history(self, **kwargs):
+        return self.movement_repo.get_history(**kwargs)

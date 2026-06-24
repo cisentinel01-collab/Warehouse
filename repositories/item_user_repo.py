@@ -10,6 +10,15 @@ class ItemRepository(BaseRepository[Item]):
     def get_by_code(self, code: str) -> Item:
         return self.db.query(Item).filter(Item.code == code).first()
 
+    def get_by_barcode(self, barcode: str) -> Item:
+        return self.db.query(Item).filter(Item.barcode == barcode).first()
+
+    def get_by_any_identifier(self, identifier: str) -> Item:
+        """Search by code or barcode."""
+        return self.db.query(Item).filter(
+            (Item.code == identifier) | (Item.barcode == identifier)
+        ).first()
+
     def get_low_stock(self) -> list[Item]:
         return self.db.query(Item).filter(Item.current_stock <= Item.min_stock, Item.active == True).all()
 

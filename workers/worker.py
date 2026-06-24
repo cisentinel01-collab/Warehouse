@@ -1,5 +1,6 @@
 from PySide6.QtCore import QRunnable, Slot, QObject, Signal
 import traceback, sys
+from database.session import Session
 
 class WorkerSignals(QObject):
     finished = Signal()
@@ -8,6 +9,10 @@ class WorkerSignals(QObject):
     progress = Signal(int)
 
 class Worker(QRunnable):
+    """
+    Worker thread for background tasks.
+    Ensures that each thread manages its own DB session lifecycle.
+    """
     def __init__(self, fn, *args, **kwargs):
         super(Worker, self).__init__()
         self.fn = fn
@@ -18,12 +23,15 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         try:
+            # Fn can access its thread-local session via database.session.Session
             result = self.fn(*self.args, **self.kwargs)
-        except:
+        except Exception:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         else:
             self.signals.result.emit(result)
         finally:
+            # Crucial: remove the thread-local session to prevent leaks
+            Session.remove()
             self.signals.finished.emit()

@@ -11,12 +11,15 @@ engine = create_engine(
 )
 
 SessionFactory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+# scoped_session ensures that each thread has its own unique session
 Session = scoped_session(SessionFactory)
 Base = declarative_base()
 
 def get_db():
+    """Provides a transactional scope around a series of operations."""
     db = Session()
     try:
         yield db
     finally:
-        db.close()
+        # scoped_session.remove() is better than .close() for scoped sessions
+        Session.remove()

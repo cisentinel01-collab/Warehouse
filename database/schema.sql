@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS locations (
 CREATE TABLE IF NOT EXISTS items (
     id SERIAL PRIMARY KEY,
     code TEXT UNIQUE NOT NULL,
+    barcode TEXT UNIQUE,
     name TEXT NOT NULL,
     category TEXT,
     unit TEXT,

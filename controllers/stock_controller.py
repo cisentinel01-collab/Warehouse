@@ -1,7 +1,4 @@
 from services.stock_service import StockService
-from sqlalchemy.orm import Session
-
-from services.stock_service import StockService
 from services.supplier_service import SupplierService
 from services.item_service import ItemService
 from sqlalchemy.orm import Session
@@ -19,8 +16,6 @@ class StockController:
 
     def receive_stock(self, data, items):
         # Adapt UI items format to service format
-        # UI: {'item_id', 'quantity', 'price', 'batch_info': {...}}
-        # Service: {'item_id', 'qty', 'price', 'bin_id', 'lot_number', 'expiry'}
         adapted_items = []
         for it in items:
             batch = it.get('batch_info', {})
@@ -28,7 +23,7 @@ class StockController:
                 'item_id': it['item_id'],
                 'qty': it['quantity'],
                 'price': it['price'],
-                'bin_id': 1, # Default bin for now
+                'bin_id': 1,
                 'lot_number': batch.get('batch_number', 'DEFAULT'),
                 'expiry': batch.get('expiry_date')
             })
@@ -56,21 +51,20 @@ class StockController:
         return success, []
 
     def get_movement_history(self, **kwargs):
-        from repositories.movement_repo import MovementRepository
-        return MovementRepository(self.db).get_history(**kwargs)
+        return self.service.get_history(**kwargs)
 
     def get_suppliers(self):
-        return self.supplier_service.supplier_repo.get_all()
+        return self.supplier_service.get_all()
 
     def get_items(self, limit=100):
-        return self.item_service.item_repo.get_all()[:limit]
+        return self.item_service.get_items(limit=limit)
 
     def search_items(self, query):
-        from models.inventory import Item
-        return self.db.query(Item).filter(Item.name.ilike(f"%{query}%")).all()
+        return self.item_service.search_items(query)
 
     def get_item_by_code(self, code):
-        return self.item_service.item_repo.get_by_code(code)
+        return self.item_service.get_item_by_code(code)
 
     def generate_movement_pdf(self, m_id):
-        return ""
+        # In a real ERP, this would use a movement-specific report generator
+        return self.service.generate_invoice_pdf(m_id)

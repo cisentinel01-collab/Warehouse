@@ -60,7 +60,7 @@ class SuppliersView(QWidget):
 
     def on_data_loaded(self, suppliers):
         data = [
-            {"name": s.name, "phone": s.phone, "email": s.email, "address": s.address}
+            {"id": s.id, "name": s.name, "phone": s.phone, "email": s.email, "address": s.address}
             for s in suppliers
         ]
         self.model.update_data(data)
@@ -68,10 +68,7 @@ class SuppliersView(QWidget):
     def handle_search(self):
         term = self.search_input.text()
         if term:
-            results = self.service.supplier_repo.db.query(self.service.supplier_repo.model).filter(
-                self.service.supplier_repo.model.name.ilike(f"%{term}%"),
-                self.service.supplier_repo.model.is_deleted == False
-            ).all()
+            results = self.service.search(term)
             self.refresh(results)
         else:
             self.refresh()

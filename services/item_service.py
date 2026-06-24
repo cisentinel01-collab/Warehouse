@@ -29,7 +29,6 @@ class ItemService:
         return None
 
     def search_items(self, term: str, limit: int = 50, offset: int = 0) -> List[Item]:
-        # Implementation with SQLAlchemy ILIKE
         from sqlalchemy import or_
         return self.db.query(Item).filter(
             or_(
@@ -39,3 +38,9 @@ class ItemService:
             ),
             Item.active == True
         ).offset(offset).limit(limit).all()
+
+    def get_item_by_code(self, code: str) -> Optional[Item]:
+        return self.item_repo.get_by_code(code)
+
+    def get_item_by_id(self, item_id: int) -> Optional[Item]:
+        return self.item_repo.get_by_id(item_id)

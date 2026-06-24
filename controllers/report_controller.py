@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from services.report_service import ReportService
+from datetime import datetime
 
 class ReportController:
     def __init__(self, db: Session):
@@ -13,10 +14,10 @@ class ReportController:
         return self.service.generate_inventory_excel()
 
     def export_movements_to_pdf(self, m_type):
-        return ""
+        return self.service.generate_inventory_report()
 
     def export_movements_to_excel(self, m_type):
-        return ""
+        return self.service.generate_inventory_excel()
 
     def export_audit_to_pdf(self):
         return ""

@@ -1,5 +1,6 @@
 from database.session import Session, engine
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from app_logging.app_logger import app_logger
 
 class DBManager:
@@ -13,23 +14,34 @@ class DBManager:
 
     def execute_query(self, query, params=(), commit=False):
         """Compatibility method for legacy raw SQL queries using SQLAlchemy engine."""
+        # Convert %s to :param_idx for SQLAlchemy text()
+        import re
+        sql_converted = query
+        param_dict = {}
+
+        # Simple %s to :p1, :p2 conversion
+        count = 1
+        while '%s' in sql_converted:
+            placeholder = f"p{count}"
+            sql_converted = sql_converted.replace('%s', f":{placeholder}", 1)
+            if (count-1) < len(params):
+                param_dict[placeholder] = params[count-1]
+            count += 1
+
         try:
             with engine.connect() as conn:
-                # Use exec_driver_sql to support native driver parameters (%s)
-                result = conn.exec_driver_sql(query, params)
+                result = conn.execute(text(sql_converted), param_dict)
                 if commit:
                     conn.commit()
-                    # Logic for RETURNING
                     if "RETURNING" in query.upper():
                         return result.scalar()
                     return None
 
-                # Fetch results as list of dicts for backward compatibility
                 if result.returns_rows:
                     return [dict(row._mapping) for row in result]
                 return []
-        except Exception as e:
-            app_logger.error(f"DBManager Error: {e}")
+        except SQLAlchemyError as e:
+            app_logger.error(f"DBManager Query Error: {e} | SQL: {sql_converted}")
             raise e
 
     def get_session(self):
