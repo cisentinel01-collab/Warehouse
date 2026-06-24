@@ -3,12 +3,13 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QHeaderView, QComboBox, QMessageBox)
 from PySide6.QtCore import Qt
 import qtawesome as qta
+from database.session import Session
 from models.inventory import Location
 
 class LocationsView(QWidget):
     def __init__(self):
         super().__init__()
-        self.model = Location()
+        self.db = Session()
         self.setup_ui()
 
     def setup_ui(self):
@@ -41,18 +42,19 @@ class LocationsView(QWidget):
 
     def refresh(self):
         term = self.search_input.text()
+        query = self.db.query(Location).filter(Location.active == True)
         if term:
-            locations = self.model.execute_query("SELECT * FROM locations WHERE name LIKE %s AND is_deleted = 0", (f"%{term}%",))
-        else:
-            locations = self.model.get_all()
+            query = query.filter(Location.name.ilike(f"%{term}%"))
+
+        locations = query.all()
 
         self.table.setRowCount(0)
         for loc in locations:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(loc['id'])))
-            self.table.setItem(row, 1, QTableWidgetItem(str(loc['name'])))
-            self.table.setItem(row, 2, QTableWidgetItem(str(loc['description'] or "")))
+            self.table.setItem(row, 0, QTableWidgetItem(str(loc.id)))
+            self.table.setItem(row, 1, QTableWidgetItem(str(loc.name)))
+            self.table.setItem(row, 2, QTableWidgetItem(str(loc.description or "")))
 
             del_btn = QPushButton()
             del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
@@ -62,8 +64,9 @@ class LocationsView(QWidget):
             self.table.setCellWidget(row, 3, del_btn)
 
     def handle_delete(self, loc):
-        if QMessageBox.question(self, "تأكيد", f"حذف الموقع '{loc['name']}'؟") == QMessageBox.Yes:
-            self.model.update(loc['id'], {"is_deleted": 1})
+        if QMessageBox.question(self, "تأكيد", f"حذف الموقع '{loc.name}'؟") == QMessageBox.Yes:
+            loc.active = False
+            self.db.commit()
             self.refresh()
 
     def show_add_dialog(self):
@@ -90,6 +93,8 @@ class LocationsView(QWidget):
             QMessageBox.warning(self, "تنبيه", "الاسم مطلوب")
             return
 
-        self.model.create({"name": name, "description": desc})
+        new_loc = Location(name=name, description=desc)
+        self.db.add(new_loc)
+        self.db.commit()
         dialog.accept()
         self.refresh()

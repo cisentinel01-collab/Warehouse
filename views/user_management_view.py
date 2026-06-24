@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableView,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QPushButton, QLineEdit, QLabel,
                              QHeaderView, QGroupBox, QDialog, QFormLayout, QComboBox, QMessageBox)
 from PySide6.QtCore import Qt
@@ -36,12 +36,12 @@ class UserManagementView(QWidget):
         for u in users:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(u['id'])))
-            self.table.setItem(row, 1, QTableWidgetItem(str(u['full_name'])))
-            self.table.setItem(row, 2, QTableWidgetItem(str(u['username'])))
+            self.table.setItem(row, 0, QTableWidgetItem(str(u.id)))
+            self.table.setItem(row, 1, QTableWidgetItem(str(u.full_name)))
+            self.table.setItem(row, 2, QTableWidgetItem(str(u.username)))
 
             role_map = {"warehouse_manager": "مسؤول مخزن", "follow_up": "المتابعة", "admin": "المدير العام"}
-            self.table.setItem(row, 3, QTableWidgetItem(role_map.get(u['role'], u['role'])))
+            self.table.setItem(row, 3, QTableWidgetItem(role_map.get(u.role, u.role)))
 
             del_btn = QPushButton()
             del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
@@ -51,12 +51,12 @@ class UserManagementView(QWidget):
             self.table.setCellWidget(row, 4, del_btn)
 
     def handle_delete(self, user):
-        if user['username'] == 'admin':
+        if user.username == 'admin':
             QMessageBox.warning(self, "تنبيه", "لا يمكن حذف حساب المدير الرئيسي")
             return
 
-        if QMessageBox.question(self, "تأكيد الحذف", f"هل أنت متأكد من حذف المستخدم '{user['username']}'؟") == QMessageBox.Yes:
-            self.controller.model.update(user['id'], {"is_active": 0})
+        if QMessageBox.question(self, "تأكيد الحذف", f"هل أنت متأكد من حذف المستخدم '{user.username}'؟") == QMessageBox.Yes:
+            self.controller.delete_user(user.id)
             self.refresh()
 
     def show_add_dialog(self):

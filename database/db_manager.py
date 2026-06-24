@@ -15,7 +15,8 @@ class DBManager:
         """Compatibility method for legacy raw SQL queries using SQLAlchemy engine."""
         try:
             with engine.connect() as conn:
-                result = conn.execute(text(query), params)
+                # Use exec_driver_sql to support native driver parameters (%s)
+                result = conn.exec_driver_sql(query, params)
                 if commit:
                     conn.commit()
                     # Logic for RETURNING

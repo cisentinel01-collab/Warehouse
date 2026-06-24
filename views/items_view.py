@@ -87,8 +87,8 @@ class ItemsView(QWidget):
         self.refresh()
 
     def refresh(self, items=None):
-        if items:
-            self.model.update_data(items)
+        if items is not None:
+            self.on_data_loaded(items)
             return
 
         worker = Worker(self.service.get_items, skip=self.current_page * self.page_size, limit=self.page_size)
@@ -96,15 +96,19 @@ class ItemsView(QWidget):
         self.threadpool.start(worker)
 
     def on_data_loaded(self, items):
-        # Convert ORM objects to dict for the model (simplified for ERP architecture)
-        data = [
-            {
-                "code": i.code, "name": i.name, "category": i.category,
-                "unit": i.unit, "current_stock": i.current_stock, "min_stock": i.min_stock
-            } for i in items
-        ]
+        data = []
+        for i in items:
+            data.append({
+                "id": i.id,
+                "code": i.code,
+                "name": i.name,
+                "category": i.category,
+                "unit": i.uom.name if i.uom else "",
+                "current_stock": i.current_stock,
+                "min_stock": i.min_stock
+            })
         self.model.update_data(data)
-        self.page_label.setText(f"{tr.get_text('page')} {self.current_page + 1}")
+        self.page_label.setText(f"صفحة {self.current_page + 1}")
         self.next_btn.setEnabled(len(items) == self.page_size)
         self.prev_btn.setEnabled(self.current_page > 0)
 
@@ -117,27 +121,14 @@ class ItemsView(QWidget):
         self.current_page += 1
         self.refresh()
 
-    def handle_delete(self, item):
-        if not AuthManager.has_permission('items', 'delete'):
-            QMessageBox.warning(self, "تنبيه", "لا تملك صلاحية الحذف")
-            return
-
-        if QMessageBox.question(self, "تأكيد", f"هل أنت متأكد من حذف '{item['name']}'؟") == QMessageBox.Yes:
-            self.controller.delete_item(item['id'])
-            self.refresh()
-            self.data_changed.emit()
-
     def handle_search(self):
-        # Debounce search
         self.search_timer.start(300)
 
     def perform_search(self):
         term = self.search_input.text()
         if term:
-            self.current_page = 0 # Reset to first page of search results
-            items = self.controller.search_items(term)
-            # For search we currently load all or let model handle it,
-            # but usually search is specific enough.
+            self.current_page = 0
+            items = self.service.search_items(term)
             self.refresh(items)
         else:
             self.current_page = 0
@@ -147,19 +138,7 @@ class ItemsView(QWidget):
         dialog = ItemDialog(self)
         if dialog.exec():
             data = dialog.get_data()
-            self.controller.add_item(data)
-            self.refresh()
-            self.data_changed.emit()
-
-    def show_edit_dialog(self, item):
-        if not AuthManager.has_permission('items', 'can_edit'):
-            QMessageBox.warning(self, "تنبيه", "لا تملك صلاحية التعديل")
-            return
-
-        dialog = ItemDialog(self, item)
-        if dialog.exec():
-            data = dialog.get_data()
-            self.controller.update_item(item['id'], data)
+            self.service.create_item(data)
             self.refresh()
             self.data_changed.emit()
 
@@ -167,12 +146,12 @@ class ItemsView(QWidget):
         file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف Excel", "", "Excel Files (*.xlsx *.xls)")
         if file_path:
             try:
-                from utils.excel_gen import ExcelGenerator
-                items = ExcelGenerator().import_items(file_path)
-                for item in items:
-                    self.controller.add_item(item)
+                from services.import_service import ImportService
+                data = ImportService().extract_from_excel(file_path)
+                for item in data:
+                    self.service.create_item(item)
                 self.refresh()
-                QMessageBox.information(self, "نجاح", f"تم استيراد {len(items)} صنف بنجاح")
+                QMessageBox.information(self, "نجاح", f"تم استيراد {len(data)} صنف بنجاح")
                 self.data_changed.emit()
             except Exception as e:
                 QMessageBox.critical(self, "خطأ", f"فشل الاستيراد: {str(e)}")
@@ -185,8 +164,6 @@ class ItemDialog(QDialog):
         self.resize(500, 500)
         self.setLayoutDirection(Qt.RightToLeft)
         self.setup_ui()
-        if item_data:
-            self.load_data()
 
     def setup_ui(self):
         layout = QFormLayout(self)
@@ -195,13 +172,11 @@ class ItemDialog(QDialog):
         self.code_input = QLineEdit()
         self.code_input.setPlaceholderText("مثال: ITEM-101")
 
-        # QR Scan button inside dialog
         code_row = QHBoxLayout()
         code_row.addWidget(self.code_input)
         scan_btn = QPushButton()
         scan_btn.setIcon(qta.icon("fa5s.qrcode", color="#1a2a6c"))
         scan_btn.setFixedSize(40, 40)
-        scan_btn.setToolTip("مسح كود QR تلقائياً")
         scan_btn.clicked.connect(self.handle_scan)
         code_row.addWidget(scan_btn)
 
@@ -211,26 +186,9 @@ class ItemDialog(QDialog):
 
         self.category_input = QLineEdit()
         self.category_input.setPlaceholderText("مثال: قطع غيار")
-        Validator.setup_strict_validation(self.category_input, "name")
-
-        self.unit_input = QLineEdit()
-        self.unit_input.setPlaceholderText("مثال: قطعة")
-        Validator.setup_strict_validation(self.unit_input, "name")
-
-        self.min_stock_input = QSpinBox()
-        self.min_stock_input.setMaximum(1000000)
-
-        self.bin_combo = QComboBox()
-        # In a real ERP, we'd load these from a LocationService
-        from database.session import Session
-        from models.inventory import Bin
-        db = Session()
-        bins = db.query(Bin).all()
-        for b in bins:
-            self.bin_combo.addItem(f"{b.code} ({b.name})", b.id)
-        db.close()
 
         self.uom_combo = QComboBox()
+        from database.session import Session
         from models.inventory import UnitOfMeasure
         db = Session()
         uoms = db.query(UnitOfMeasure).all()
@@ -238,16 +196,14 @@ class ItemDialog(QDialog):
             self.uom_combo.addItem(u.name, u.id)
         db.close()
 
+        self.min_stock_input = QSpinBox()
+        self.min_stock_input.setMaximum(1000000)
+
         layout.addRow("كود الصنف:", code_row)
         layout.addRow("اسم الصنف:", self.name_input)
         layout.addRow("الفئة:", self.category_input)
         layout.addRow("وحدة القياس:", self.uom_combo)
-        layout.addRow("موقع التخزين (Bin):", self.bin_combo)
-
-        min_stock_layout = QHBoxLayout()
-        min_stock_layout.addWidget(self.min_stock_input)
-        min_stock_layout.addStretch()
-        layout.addRow("الحد الأدنى:", min_stock_layout)
+        layout.addRow("الحد الأدنى:", self.min_stock_input)
 
         btns = QHBoxLayout()
         save_btn = QPushButton("حفظ")
@@ -264,21 +220,6 @@ class ItemDialog(QDialog):
         if ok and code:
             self.code_input.setText(code)
 
-    def load_data(self):
-        self.code_input.setText(str(self.item_data['code']))
-        self.name_input.setText(str(self.item_data['name']))
-        self.category_input.setText(str(self.item_data['category'] or ""))
-        self.unit_input.setText(str(self.item_data['unit'] or ""))
-        self.min_stock_input.setValue(self.item_data['min_stock'])
-        if self.item_data.get('location_id'):
-            index = self.location_combo.findData(self.item_data['location_id'])
-            if index >= 0:
-                self.location_combo.setCurrentIndex(index)
-        if self.item_data.get('supplier_id'):
-            index = self.supplier_combo.findData(self.item_data['supplier_id'])
-            if index >= 0:
-                self.supplier_combo.setCurrentIndex(index)
-
     def accept(self):
         from utils.validator import Validator
         if not Validator.is_not_empty(self.code_input.text()) or \
@@ -292,8 +233,6 @@ class ItemDialog(QDialog):
             "code": self.code_input.text(),
             "name": self.name_input.text(),
             "category": self.category_input.text(),
-            "unit": self.unit_input.text(),
-            "location_id": self.location_combo.currentData(),
-            "supplier_id": self.supplier_combo.currentData(),
+            "uom_id": self.uom_combo.currentData(),
             "min_stock": self.min_stock_input.value()
         }

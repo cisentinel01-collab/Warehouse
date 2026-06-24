@@ -5,8 +5,6 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QInputDialog, QDateEdit, QGridLayout, QScrollArea, QFrame)
 from PySide6.QtCore import Qt, Signal, QTimer
 import qtawesome as qta
-from models.inventory import Item
-from models.inventory import Supplier
 from utils.auth import AuthManager
 
 class StockOperationsView(QWidget):
@@ -234,6 +232,69 @@ class StockOperationsView(QWidget):
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
 
+    def handle_smart_import(self):
+        from PySide6.QtWidgets import QFileDialog
+        from services.import_service import ImportService
+        from views.import_verification_dialog import ImportVerificationDialog
+
+        file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف الفاتورة", "", "All Files (*.xlsx *.pdf *.xls)")
+        if not file_path: return
+
+        service = ImportService()
+        if file_path.endswith('.pdf'):
+            data = service.extract_from_pdf(file_path)
+        else:
+            data = service.extract_from_excel(file_path)
+
+        if not data:
+            QMessageBox.warning(self, "تنبيه", "لم يتم العثور على بيانات في الملف أو تنسيق الملف غير مدعوم")
+            return
+
+        dialog = ImportVerificationDialog(data, self)
+        if dialog.exec():
+            # Add confirmed items to list
+            for item in dialog.confirmed_data:
+                # Find item in system
+                sys_item = self.controller.get_item_by_code(item['code'])
+                if not sys_item:
+                    search_res = self.controller.search_items(item['name'])
+                    if search_res: sys_item = search_res[0]
+
+                if sys_item:
+                    # Model to dict if SQLAlchemy object
+                    if not isinstance(sys_item, dict):
+                        sys_item = {
+                            'id': sys_item.id,
+                            'code': sys_item.code,
+                            'name': sys_item.name,
+                            'unit': sys_item.uom.name if sys_item.uom else ''
+                        }
+
+                    item_id = sys_item['id']
+                    item_code = sys_item['code']
+                    item_name = sys_item['name']
+                else:
+                    QMessageBox.information(self, "تنبيه", f"الصنف {item['name']} غير موجود في النظام. يرجى إضافته يدوياً.")
+                    continue
+
+                self.items_to_move.append({
+                    "item_id": item_id,
+                    "item_name": item_name,
+                    "item_code": item_code,
+                    "quantity": item['quantity'],
+                    "price": item['price'],
+                    "unit": sys_item.get('unit', '')
+                })
+
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                self.table.setItem(row, 0, QTableWidgetItem(str(item_code)))
+                self.table.setItem(row, 1, QTableWidgetItem(str(item_name)))
+                self.table.setItem(row, 2, QTableWidgetItem(str(item['quantity'])))
+                self.table.setItem(row, 3, QTableWidgetItem(str(item['price'])))
+
+            self.update_summary()
+
     def setup_history_tab(self):
         layout = QVBoxLayout(self.history_tab)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -257,7 +318,6 @@ class StockOperationsView(QWidget):
 
     def load_history(self):
         self.history_table.setUpdatesEnabled(False)
-        # For history, we also limit to 100 recent records by default for speed
         history = self.controller.get_movement_history(type=self.op_type, limit=100)
         self.history_table.setRowCount(0)
         for h in history:
@@ -275,7 +335,6 @@ class StockOperationsView(QWidget):
         self.history_table.setUpdatesEnabled(True)
 
     def handle_history_double_click(self, index):
-        # Double check we have the row index correctly
         row = index.row()
         history = self.controller.get_movement_history(type=self.op_type)
         if row < len(history):
@@ -290,9 +349,12 @@ class StockOperationsView(QWidget):
 
     def load_suppliers(self):
         self.supplier_combo.clear()
-        suppliers = Supplier().get_all()
+        suppliers = self.controller.get_suppliers()
         for s in suppliers:
-            self.supplier_combo.addItem(s['name'], s['id'])
+            # Model to dict if needed
+            s_id = s.id if hasattr(s, 'id') else s['id']
+            s_name = s.name if hasattr(s, 'name') else s['name']
+            self.supplier_combo.addItem(s_name, s_id)
 
     def update_summary(self):
         subtotal = sum(item['quantity'] * item.get('price', 0) for item in self.items_to_move)
@@ -308,16 +370,20 @@ class StockOperationsView(QWidget):
     def handle_item_selection_change(self):
         item_data = self.item_combo.currentData()
         if item_data:
-            # Fetch last purchase price
+            # item_data could be a dict or a model object
+            item_id = item_data.id if hasattr(item_data, 'id') else item_data.get('id')
+            if not item_id: return
+
+            # Fetch last purchase price via raw query for speed
             from database.db_manager import DBManager
             db = DBManager()
             query = """
-                SELECT price FROM movement_items mi
+                SELECT mi.price FROM movement_items mi
                 JOIN movements m ON mi.movement_id = m.id
                 WHERE mi.item_id = %s AND m.type = 'IN'
                 ORDER BY m.date DESC LIMIT 1
             """
-            res = db.execute_query(query, (item_data['id'],))
+            res = db.execute_query(query, (item_id,))
             if res:
                 self.price_input.setText(f"{res[0]['price']:.2f}")
             else:
@@ -328,19 +394,21 @@ class StockOperationsView(QWidget):
         if ok and code:
             for i in range(self.item_combo.count()):
                 item_data = self.item_combo.itemData(i)
-                if item_data and (item_data['code'] == code):
+                i_code = item_data.code if hasattr(item_data, 'code') else item_data.get('code')
+                if i_code == code:
                     self.item_combo.setCurrentIndex(i)
                     return
             QMessageBox.warning(self, "تنبيه", "الصنف غير موجود في القائمة")
 
     def load_items(self):
-        # Use blockSignals to prevent triggers during batch updates
         self.item_combo.blockSignals(True)
         self.item_combo.clear()
-        # Load only top 50 items initially to avoid freeze
-        items = Item().get_all_with_location(limit=50)
+        items = self.controller.get_items(limit=100)
         for i in items:
-            self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
+            code = i.code if hasattr(i, 'code') else i['code']
+            name = i.name if hasattr(i, 'name') else i['name']
+            stock = i.current_stock if hasattr(i, 'current_stock') else i['current_stock']
+            self.item_combo.addItem(f"{code} - {name} (المخزون: {stock})", i)
         self.item_combo.blockSignals(False)
 
     def on_item_combo_text_changed(self, text):
@@ -352,13 +420,15 @@ class StockOperationsView(QWidget):
         if not text:
             return
 
-        items = Item().search(text)
+        items = self.controller.search_items(text)
 
-        # Block signals to update list without triggering selection changes
         self.item_combo.blockSignals(True)
         self.item_combo.clear()
         for i in items[:50]:
-            self.item_combo.addItem(f"{i['code']} - {i['name']} (المخزون: {i['current_stock']})", i)
+            code = i.code if hasattr(i, 'code') else i['code']
+            name = i.name if hasattr(i, 'name') else i['name']
+            stock = i.current_stock if hasattr(i, 'current_stock') else i['current_stock']
+            self.item_combo.addItem(f"{code} - {name} (المخزون: {stock})", i)
         self.item_combo.setEditText(text)
         self.item_combo.blockSignals(False)
 
@@ -368,62 +438,6 @@ class StockOperationsView(QWidget):
             self.items_to_move = []
             self.update_summary()
 
-    def handle_smart_import(self):
-        from PySide6.QtWidgets import QFileDialog
-        from services.import_service import ImportService
-        from views.import_verification_dialog import ImportVerificationDialog
-
-        file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف الفاتورة", "", "All Files (*.xlsx *.pdf *.xls)")
-        if not file_path: return
-
-        service = ImportService()
-        if file_path.endswith('.pdf'):
-            data = service.extract_from_pdf(file_path)
-        else:
-            data = service.extract_from_excel(file_path)
-
-        if not data:
-            QMessageBox.warning(self, "تنبيه", "لم يتم العثور على بيانات في الملف أو تنسيق الملف غير مدعوم")
-            return
-
-        dialog = ImportVerificationDialog(data, self)
-        if dialog.exec():
-            # Add confirmed items to list
-            for item in dialog.confirmed_data:
-                # Find item in system or create entry
-                from models.inventory import Item
-                sys_item = Item().get_by_code(item['code']) or Item().search(item['name'])
-                if sys_item and isinstance(sys_item, list): sys_item = sys_item[0]
-
-                # Create a fake item_data for add_item_to_list logic if not found
-                if sys_item:
-                    item_id = sys_item['id']
-                    item_code = sys_item['code']
-                    item_name = sys_item['name']
-                else:
-                    # In a real system, we'd prompt to create new item.
-                    # For now, we skip or use descriptive name
-                    QMessageBox.information(self, "تنبيه", f"الصنف {item['name']} غير موجود في النظام. يرجى إضافته يدوياً.")
-                    continue
-
-                self.items_to_move.append({
-                    "item_id": item_id,
-                    "item_name": item_name,
-                    "item_code": item_code,
-                    "quantity": item['quantity'],
-                    "price": item['price'],
-                    "unit": sys_item.get('unit', '')
-                })
-
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-                self.table.setItem(row, 0, QTableWidgetItem(str(item_code)))
-                self.table.setItem(row, 1, QTableWidgetItem(str(item_name)))
-                self.table.setItem(row, 2, QTableWidgetItem(str(item['quantity'])))
-                self.table.setItem(row, 3, QTableWidgetItem(str(item['price'])))
-
-            self.update_summary()
-
     def refresh(self):
         self.load_items()
         self.load_history()
@@ -431,14 +445,14 @@ class StockOperationsView(QWidget):
     def add_item_to_list(self):
         item_data = self.item_combo.currentData()
 
-        # Fallback: if no item selected in data, check if typed text is a valid code
         if not item_data:
             typed_text = self.item_combo.currentText().split(" - ")[0].strip()
-            item_data = Item().get_by_code(typed_text)
+            item_data = self.controller.get_item_by_code(typed_text)
 
         if not item_data:
             QMessageBox.warning(self, "تنبيه", "يرجى اختيار صنف صحيح أولاً")
             return
+
         qty = self.qty_input.value()
         if qty <= 0: return
 
@@ -452,13 +466,14 @@ class StockOperationsView(QWidget):
             QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون رقماً")
             return
 
-        # Smart Duplicate Check
+        item_id = item_data.id if hasattr(item_data, 'id') else item_data['id']
+        item_code = item_data.code if hasattr(item_data, 'code') else item_data['code']
+        item_name = item_data.name if hasattr(item_data, 'name') else item_data['name']
+        item_stock = item_data.current_stock if hasattr(item_data, 'current_stock') else item_data['current_stock']
+
         existing_idx = -1
-        # For OUT, we still merge to same item to check total stock
-        # For IN, we merge if batch is the same (simplified: always check ID first)
         for idx, item in enumerate(self.items_to_move):
-            if item['item_id'] == item_data['id']:
-                # For IN, check if batch is different
+            if item['item_id'] == item_id:
                 if self.op_type == "IN":
                     new_batch = self.batch_input.text() or "DEFAULT"
                     if item.get('batch_info', {}).get('batch_number') == new_batch:
@@ -474,33 +489,31 @@ class StockOperationsView(QWidget):
             new_qty = qty
 
         if self.op_type == "OUT":
-            current_item = Item().get_by_id(item_data['id'])
-            if new_qty > current_item['current_stock']:
+            if new_qty > item_stock:
                 QMessageBox.warning(self, "تنبيه المخزون",
-                                  f"الكمية الكلية المطلوبة ({new_qty}) أكبر من المخزون المتاح ({current_item['current_stock']})")
+                                  f"الكمية الكلية المطلوبة ({new_qty}) أكبر من المخزون المتاح ({item_stock})")
                 return
 
         if existing_idx != -1:
             self.items_to_move[existing_idx]['quantity'] = new_qty
             self.items_to_move[existing_idx]['price'] = price
-            # Update Table Row
             self.table.setItem(existing_idx, 2, QTableWidgetItem(str(new_qty)))
             self.table.setItem(existing_idx, 3, QTableWidgetItem(str(price)))
         else:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(item_data['code'])))
-            self.table.setItem(row, 1, QTableWidgetItem(str(item_data['name'])))
+            self.table.setItem(row, 0, QTableWidgetItem(str(item_code)))
+            self.table.setItem(row, 1, QTableWidgetItem(str(item_name)))
             self.table.setItem(row, 2, QTableWidgetItem(str(qty)))
             self.table.setItem(row, 3, QTableWidgetItem(str(price)))
 
             item_entry = {
-                "item_id": item_data['id'],
-                "item_name": item_data['name'],
-                "item_code": item_data['code'],
+                "item_id": item_id,
+                "item_name": item_name,
+                "item_code": item_code,
                 "quantity": qty,
                 "price": price,
-                "unit": item_data.get('unit', '')
+                "unit": item_data.uom.name if hasattr(item_data, 'uom') and item_data.uom else ''
             }
 
             if self.op_type == "IN":
@@ -544,7 +557,7 @@ class StockOperationsView(QWidget):
                     return
                 movement_data["supplier_id"] = self.supplier_combo.currentData()
                 movement_data["received_by"] = self.receiver_input.text()
-                m_id, low_items = self.controller.receive_stock(movement_data, self.items_to_move)
+                success, low_items = self.controller.receive_stock(movement_data, self.items_to_move)
             else:
                 if not Validator.is_not_empty(self.issuing_entity.text()) or \
                    not Validator.is_not_empty(self.receiver_name.text()):
@@ -553,16 +566,17 @@ class StockOperationsView(QWidget):
                 movement_data["issuing_entity"] = self.issuing_entity.text()
                 movement_data["receiver_name"] = self.receiver_name.text()
                 movement_data["reason"] = self.reason_input.text()
-                m_id, low_items = self.controller.issue_stock(movement_data, self.items_to_move)
+                success, low_items = self.controller.issue_stock(movement_data, self.items_to_move)
 
-            msg = f"تمت العملية بنجاح. رقم الفاتورة: {ref_no}\nتم حفظ نسخة PDF في مجلد reports."
-            QMessageBox.information(self, "نجاح", msg)
+            if success:
+                msg = f"تمت العملية بنجاح. رقم الفاتورة: {ref_no}"
+                QMessageBox.information(self, "نجاح", msg)
 
-            for item in low_items:
-                NotificationManager.error(self.window(), f"تنبيه: الصنف '{item}' وصل للحد الحرج!")
-            self.reset_form()
-            self.data_changed.emit()
-            self.load_history()
+                for item in low_items:
+                    NotificationManager.error(self.window(), f"تنبيه: الصنف '{item}' وصل للحد الحرج!")
+                self.reset_form()
+                self.data_changed.emit()
+                self.load_history()
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"فشل إتمام العملية: {str(e)}")
 
@@ -574,7 +588,6 @@ class StockOperationsView(QWidget):
         self.discount_input.setValue(0)
         if self.op_type == "IN":
             self.receiver_input.clear()
-            if hasattr(self, 'price_input'): self.price_input.clear()
         else:
             self.issuing_entity.clear()
             self.receiver_name.clear()
