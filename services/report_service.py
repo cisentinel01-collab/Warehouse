@@ -3,7 +3,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from sqlalchemy.orm import Session
-from models.inventory import Item, Settings
+from models.inventory import Item, Settings, StockLot
+from datetime import datetime, timedelta
 import os
 
 class ReportService:
@@ -11,41 +12,50 @@ class ReportService:
         self.db = db
 
     def generate_inventory_report(self):
-        settings = self.db.query(Settings).first() or Settings()
-        filename = f"reports/inventory_{os.getpid()}.pdf"
-        if not os.path.exists("reports"): os.makedirs("reports")
+        try:
+            settings = self.db.query(Settings).first() or Settings()
+            filename = f"reports/inventory_{os.getpid()}.pdf"
+            if not os.path.exists("reports"): os.makedirs("reports")
 
-        doc = SimpleDocTemplate(filename, pagesize=A4)
-        elements = []
-        styles = getSampleStyleSheet()
+            doc = SimpleDocTemplate(filename, pagesize=A4)
+            elements = []
+            styles = getSampleStyleSheet()
 
-        # Header
-        elements.append(Paragraph(f"<b>{settings.company_name}</b>", styles['Title']))
-        elements.append(Paragraph("تقرير جرد المخازن", styles['Heading2']))
-        elements.append(Spacer(1, 12))
+            # Header
+            elements.append(Paragraph(f"<b>{settings.company_name}</b>", styles['Title']))
+            elements.append(Paragraph("تقرير جرد المخازن", styles['Heading2']))
+            elements.append(Spacer(1, 12))
 
-        # Data
-        items = self.db.query(Item).all()
-        data = [["كود الصنف", "اسم الصنف", "المخزون", "الوحدة"]]
-        for i in items:
-            data.append([i.code, i.name, str(i.current_stock), i.uom.name if i.uom else ""])
+            # Data
+            items = self.db.query(Item).filter(Item.active == True).all()
+            data = [["كود الصنف", "اسم الصنف", "المخزون", "الوحدة"]]
+            for i in items:
+                data.append([i.code, i.name, str(i.current_stock), i.uom.name if i.uom else ""])
 
-        t = Table(data)
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(t)
-        doc.build(elements)
-        return filename
+            if len(data) > 1:
+                t = Table(data)
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                elements.append(t)
+            else:
+                elements.append(Paragraph("لا توجد أصناف مسجلة حالياً", styles['Normal']))
+
+            doc.build(elements)
+            return filename
+        except Exception as e:
+            from app_logging.app_logger import app_logger
+            app_logger.error(f"Report generation error: {e}")
+            raise
 
     def generate_inventory_excel(self):
         import pandas as pd
-        items = self.db.query(Item).all()
+        items = self.db.query(Item).filter(Item.active == True).all()
         data = [{
             'الكود': i.code,
             'الاسم': i.name,

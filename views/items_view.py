@@ -172,14 +172,6 @@ class ItemDialog(QDialog):
         self.code_input = QLineEdit()
         self.code_input.setPlaceholderText("مثال: ITEM-101")
 
-        code_row = QHBoxLayout()
-        code_row.addWidget(self.code_input)
-        scan_btn = QPushButton()
-        scan_btn.setIcon(qta.icon("fa5s.qrcode", color="#1a2a6c"))
-        scan_btn.setFixedSize(40, 40)
-        scan_btn.clicked.connect(self.handle_scan)
-        code_row.addWidget(scan_btn)
-
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("أدخل اسم الصنف")
         Validator.setup_strict_validation(self.name_input, "name")
@@ -199,10 +191,28 @@ class ItemDialog(QDialog):
         self.min_stock_input = QSpinBox()
         self.min_stock_input.setMaximum(1000000)
 
-        layout.addRow("كود الصنف:", code_row)
+        self.location_combo = QComboBox()
+        from models.inventory import Location
+        db = Session()
+        locations = db.query(Location).filter(Location.active == True).all()
+        for loc in locations:
+            self.location_combo.addItem(loc.name, loc.id)
+        db.close()
+
+        self.supplier_combo = QComboBox()
+        from models.inventory import Supplier
+        db = Session()
+        suppliers = db.query(Supplier).filter(Supplier.is_deleted == False).all()
+        for s in suppliers:
+            self.supplier_combo.addItem(s.name, s.id)
+        db.close()
+
+        layout.addRow("كود الصنف:", self.code_input)
         layout.addRow("اسم الصنف:", self.name_input)
         layout.addRow("الفئة:", self.category_input)
         layout.addRow("وحدة القياس:", self.uom_combo)
+        layout.addRow("موقع التخزين:", self.location_combo)
+        layout.addRow("المورد المفضل:", self.supplier_combo)
         layout.addRow("الحد الأدنى:", self.min_stock_input)
 
         btns = QHBoxLayout()
@@ -214,11 +224,6 @@ class ItemDialog(QDialog):
         btns.addWidget(save_btn)
         btns.addWidget(cancel_btn)
         layout.addRow(btns)
-
-    def handle_scan(self):
-        code, ok = QInputDialog.getText(self, "مسح QR", "يرجى مسح كود QR الآن:")
-        if ok and code:
-            self.code_input.setText(code)
 
     def accept(self):
         from utils.validator import Validator
@@ -234,5 +239,7 @@ class ItemDialog(QDialog):
             "name": self.name_input.text(),
             "category": self.category_input.text(),
             "uom_id": self.uom_combo.currentData(),
+            "location_id": self.location_combo.currentData(),
+            "supplier_id": self.supplier_combo.currentData(),
             "min_stock": self.min_stock_input.value()
         }

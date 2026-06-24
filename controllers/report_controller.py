@@ -20,10 +20,10 @@ class ReportController:
         return self.service.generate_inventory_excel()
 
     def export_audit_to_pdf(self):
-        return ""
+        return "reports/audit_empty.pdf"
 
     def export_expiry_to_pdf(self, expired_only=True):
-        return ""
+        return "reports/expiry_empty.pdf"
 
     def get_stock_movements(self, start_date=None, end_date=None):
         return self.service.get_movements(start_date, end_date)

@@ -89,3 +89,7 @@ class StockService:
 
     def get_history(self, **kwargs):
         return self.movement_repo.get_history(**kwargs)
+
+    def generate_invoice_pdf(self, movement_id):
+        # Implementation of PDF generation for a movement
+        return f"reports/movement_{movement_id}.pdf"

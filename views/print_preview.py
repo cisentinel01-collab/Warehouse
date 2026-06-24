@@ -1,87 +1,54 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QLabel, QFrame, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame)
+from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt
+import qtawesome as qta
 import os
-import sys
 
 class PrintPreviewDialog(QDialog):
-    def __init__(self, pdf_path, parent=None):
+    def __init__(self, file_path, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("معاينة الفاتورة")
+        self.setWindowTitle("معاينة المستند")
         self.resize(800, 600)
-        self.pdf_path = os.path.abspath(pdf_path)
+        self.file_path = file_path
+        self.setup_ui()
 
+    def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
 
-        # Header info
-        header = QFrame()
-        header.setStyleSheet("background-color: #1a2a6c; border-radius: 8px;")
-        h_layout = QHBoxLayout(header)
-        title = QLabel("تم توليد الملف بنجاح")
-        title.setStyleSheet("color: #d4af37; font-size: 18px; font-weight: bold; padding: 10px;")
-        h_layout.addWidget(title)
-        layout.addWidget(header)
-
-        # File path display
-        path_frame = QFrame()
-        path_frame.setObjectName("Card")
-        p_layout = QVBoxLayout(path_frame)
-        p_layout.addWidget(QLabel("مسار الملف:"))
-        path_label = QLabel(self.pdf_path)
-        path_label.setWordWrap(True)
-        path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        path_label.setStyleSheet("color: #ffffff; font-family: 'Courier New'; font-weight: bold; border: 1px solid #dcdde1; padding: 10px; background: #111111;")
-        p_layout.addWidget(path_label)
-        layout.addWidget(path_frame)
-
-        info_label = QLabel("يمكنك فتح الملف للمعاينة أو إرساله للطباعة مباشرة.")
+        info_label = QLabel(f"تم توليد المستند بنجاح:\n{os.path.abspath(self.file_path)}")
         info_label.setAlignment(Qt.AlignCenter)
+        info_label.setStyleSheet("font-size: 14px; margin: 20px;")
         layout.addWidget(info_label)
 
-        layout.addStretch()
+        icon_label = QLabel()
+        icon_label.setPixmap(qta.icon("fa5s.file-pdf", color="#e74c3c").pixmap(100, 100))
+        icon_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(icon_label)
 
-        # Action Buttons
         btn_layout = QHBoxLayout()
-
-        open_btn = QPushButton("فتح والمعاينة")
+        open_btn = QPushButton("فتح الملف")
         open_btn.setObjectName("GoldButton")
-        open_btn.setMinimumHeight(50)
         open_btn.clicked.connect(self.open_file)
-        btn_layout.addWidget(open_btn)
-
-        print_btn = QPushButton("طباعة")
-        print_btn.setObjectName("PrimaryButton")
-        print_btn.setMinimumHeight(50)
-        print_btn.clicked.connect(self.print_file)
-        btn_layout.addWidget(print_btn)
 
         close_btn = QPushButton("إغلاق")
-        close_btn.setMinimumHeight(50)
         close_btn.clicked.connect(self.accept)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(open_btn)
         btn_layout.addWidget(close_btn)
+        btn_layout.addStretch()
 
         layout.addLayout(btn_layout)
 
     def open_file(self):
+        import subprocess, platform
         try:
-            if sys.platform == 'win32':
-                os.startfile(self.pdf_path)
-            elif sys.platform == 'darwin':
-                os.system(f'open "{self.pdf_path}"')
-            else:
-                os.system(f'xdg-open "{self.pdf_path}"')
+            if platform.system() == 'Darwin':       # macOS
+                subprocess.call(('open', self.file_path))
+            elif platform.system() == 'Windows':    # Windows
+                os.startfile(self.file_path)
+            else:                                   # linux variants
+                subprocess.call(('xdg-open', self.file_path))
         except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
             QMessageBox.critical(self, "خطأ", f"فشل فتح الملف: {str(e)}")
-
-    def print_file(self):
-        try:
-            if sys.platform == 'win32':
-                import win32api
-                import win32print
-                win32api.ShellExecute(0, "print", self.pdf_path, None, ".", 0)
-            else:
-                os.system(f'lp "{self.pdf_path}"')
-            QMessageBox.information(self, "طباعة", "تم إرسال الأمر للطابعة")
-        except Exception as e:
-            QMessageBox.critical(self, "خطأ", f"فشل الطباعة: {str(e)}")

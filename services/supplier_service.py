@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from models.inventory import Supplier
 from repositories.supplier_repo import SupplierRepository
+from models.inventory import Supplier
 from app_logging.app_logger import app_logger
 
 class SupplierService:

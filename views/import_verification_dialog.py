@@ -51,11 +51,19 @@ class ImportVerificationDialog(QDialog):
         self.confirmed_data = []
         for row in range(self.table.rowCount()):
             try:
+                code_item = self.table.item(row, 0)
+                name_item = self.table.item(row, 1)
+                qty_item = self.table.item(row, 2)
+                price_item = self.table.item(row, 3)
+
+                if not code_item or not name_item or not qty_item or not price_item:
+                    continue
+
                 self.confirmed_data.append({
-                    'code': self.table.item(row, 0).text(),
-                    'name': self.table.item(row, 1).text(),
-                    'quantity': float(self.table.item(row, 2).text()),
-                    'price': float(self.table.item(row, 3).text())
+                    'code': code_item.text(),
+                    'name': name_item.text(),
+                    'quantity': float(qty_item.text()),
+                    'price': float(price_item.text())
                 })
             except ValueError:
                 QMessageBox.warning(self, "خطأ", f"خطأ في بيانات الصف رقم {row+1}")

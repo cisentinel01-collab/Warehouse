@@ -81,16 +81,17 @@ class DeviceManagementView(QWidget):
             self.table.setItem(row, 0, QTableWidgetItem(str(device["id"])))
             self.table.setItem(row, 1, QTableWidgetItem(device["computer_name"]))
 
-            status_item = QTableWidgetItem(device["status"])
+            status_text = device["status"]
+            status_item = QTableWidgetItem(status_text)
 
-            if device["status"] == "active":
+            if status_text == "active":
                 status_item.setBackground(QColor("#16a34a"))
                 status_item.setForeground(QColor("white"))
 
-            elif device["status"] == "pending":
+            elif status_text == "pending":
                 status_item.setBackground(QColor("#facc15"))
 
-            elif device["status"] == "blocked":
+            elif status_text == "blocked":
                 status_item.setBackground(QColor("#dc2626"))
                 status_item.setForeground(QColor("white"))
 

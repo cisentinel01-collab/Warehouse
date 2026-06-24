@@ -14,7 +14,7 @@ class AuthService:
     def authenticate(self, username, password) -> Optional[User]:
         user = self.user_repo.get_by_username(username)
         if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
-            if user.status == 'active':
+            if user.is_active:
                 return user
         return None
 
@@ -31,7 +31,7 @@ class AuthService:
     def deactivate_user(self, user_id: int) -> bool:
         user = self.user_repo.get_by_id(user_id)
         if user:
-            user.status = 'inactive'
+            user.is_active = False
             self.db.commit()
             return True
         return False

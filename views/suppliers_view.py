@@ -6,6 +6,7 @@ import qtawesome as qta
 from utils.auth import AuthManager
 from views_components.enterprise_table_model import EnterpriseTableModel
 from workers.worker import Worker
+from database.session import Session
 
 class SuppliersView(QWidget):
     def __init__(self, service):
@@ -107,3 +108,12 @@ class SuppliersView(QWidget):
         self.service.create_supplier(data)
         dialog.accept()
         self.refresh()
+
+    def handle_delete(self, supplier_id):
+        if QMessageBox.question(self, "تأكيد", "هل أنت متأكد من حذف هذا المورد؟") == QMessageBox.Yes:
+            if self.service.delete_supplier(supplier_id):
+                self.refresh()
+
+    def closeEvent(self, event):
+        Session.remove()
+        event.accept()

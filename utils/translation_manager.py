@@ -15,7 +15,7 @@ class TranslationManager:
         return cls._instance
 
     def _load_translations(self):
-        trans_dir = "app/translations"
+        trans_dir = "translations"
         for lang in ['ar', 'en']:
             path = os.path.join(trans_dir, f"{lang}.json")
             if os.path.exists(path):
@@ -33,4 +33,10 @@ class TranslationManager:
     def current_language(self):
         return self._current_lang
 
-tr = TranslationManager()
+    @property
+    def is_rtl(self):
+        return self._current_lang == 'ar'
+
+tr_manager = TranslationManager()
+def tr(key: str) -> str:
+    return tr_manager.get_text(key)

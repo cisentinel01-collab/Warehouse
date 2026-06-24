@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QStackedWidget, QMessageBox, QFrame)
 from PySide6.QtCore import Qt, QSize
 import qtawesome as qta
+import traceback
 
 from views.dashboard_view import DashboardView
 from views.items_view import ItemsView
@@ -15,19 +16,16 @@ from views.locations_view import LocationsView
 from views.device_management_view import DeviceManagementView
 
 from services.dashboard_service import DashboardService
-
-
 from controllers.stock_controller import StockController
 from controllers.report_controller import ReportController
 from controllers.user_controller import UserController
 from controllers.purchase_controller import PurchaseController
 from controllers.device_controller import DeviceController
 from services.report_service import ReportService
-
-
 from services.item_service import ItemService
 from services.supplier_service import SupplierService
 from database.session import Session
+from app_logging.app_logger import app_logger
 
 from utils.auth import AuthManager
 from models.inventory import Batch
@@ -40,36 +38,48 @@ class MainWindow(QMainWindow):
         self.resize(1200, 800)
         self.setLayoutDirection(Qt.RightToLeft)
 
-        self.db = Session()
-        self.item_service = ItemService(self.db)
-        self.supplier_service = SupplierService(self.db)
+        try:
+            self.db = Session()
+            self.item_service = ItemService(self.db)
+            self.supplier_service = SupplierService(self.db)
 
-        self.setup_ui()
-        # Cache Views
-        self.dashboard_view = DashboardView(DashboardService(self.db))
-        self.items_view = ItemsView(self.item_service)
-        self.suppliers_view = SuppliersView(self.supplier_service)
-        self.stock_in_view = StockOperationsView(StockController(self.db), "IN")
-        self.stock_out_view = StockOperationsView(StockController(self.db), "OUT")
-        self.reports_view = ReportsView(ReportController(self.db))
-        self.users_view = UserManagementView(UserController(self.db))
-        self.devices_view = DeviceManagementView(DeviceController(self.db))
-        self.settings_view = SettingsView()
-        self.locations_view = LocationsView()
-        self.purchase_view = PurchaseView(PurchaseController(self.db))
-        self.load_dashboard()
-        self.check_expiry_alarm()
+            self.setup_ui()
+            self.init_views()
+
+            self.load_dashboard()
+            self.check_expiry_alarm()
+        except Exception as e:
+            app_logger.critical(f"MainWindow __init__ failure: {e}\n{traceback.format_exc()}")
+            raise
+
+    def init_views(self):
+        # Cache Views with error boundaries
+        try:
+            self.dashboard_view = DashboardView(DashboardService(self.db))
+            self.items_view = ItemsView(self.item_service)
+            self.suppliers_view = SuppliersView(self.supplier_service)
+            self.stock_in_view = StockOperationsView(StockController(self.db), "IN")
+            self.stock_out_view = StockOperationsView(StockController(self.db), "OUT")
+            self.reports_view = ReportsView(ReportController(self.db))
+            self.users_view = UserManagementView(UserController(self.db))
+            self.devices_view = DeviceManagementView(DeviceController(self.db))
+            self.settings_view = SettingsView()
+            self.locations_view = LocationsView()
+            self.purchase_view = PurchaseView(PurchaseController(self.db))
+        except Exception as e:
+            app_logger.error(f"Error initializing views: {e}")
+            QMessageBox.warning(self, "تحذير", f"فشل تحميل بعض الواجهات: {str(e)}")
 
     def check_expiry_alarm(self):
-        batch_model = Batch()
-        expired = batch_model.get_expired()
-        soon = batch_model.get_expiring_soon(6)
+        try:
+            expired = Batch.get_expired(self.db)
+            soon = Batch.get_expiring_soon(6, self.db)
 
-        if expired or soon:
-            # Play alarm (simulated by popup and potential sound integration)
-            # In a real desktop app, we'd use QSoundEffect
-            dialog = ExpiryAlarmDialog(expired, soon, self)
-            dialog.exec()
+            if expired or soon:
+                dialog = ExpiryAlarmDialog(expired, soon, self)
+                dialog.exec()
+        except Exception as e:
+            app_logger.error(f"Expiry alarm check failed: {e}")
 
     def setup_ui(self):
         main_widget = QWidget()
@@ -138,10 +148,6 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(content_container)
 
-    def animate_page_switch(self, widget):
-        self.stack.addWidget(widget)
-        self.stack.setCurrentWidget(widget)
-
     def create_nav_button(self, id, text, icon_name):
         if not AuthManager.has_permission(id):
             return
@@ -156,49 +162,41 @@ class MainWindow(QMainWindow):
         self.nav_buttons[id] = btn
 
     def switch_page(self, page_id):
-        self.nav_buttons[page_id].setChecked(True)
-        self.page_title.setText(self.nav_buttons[page_id].text())
+        try:
+            self.nav_buttons[page_id].setChecked(True)
+            self.page_title.setText(self.nav_buttons[page_id].text())
 
-        # Reuse cached views to improve performance
-        if page_id == "dashboard":
-            view = self.dashboard_view
-        elif page_id == "items":
-            view = self.items_view
-        elif page_id == "suppliers":
-            view = self.suppliers_view
-        elif page_id == "stock_in":
-            view = self.stock_in_view
-        elif page_id == "stock_out":
-            view = self.stock_out_view
-        elif page_id == "reports":
-            view = self.reports_view
-        elif page_id == "users":
-            view = self.users_view
-        elif page_id == "devices":
-            view = self.devices_view
-        elif page_id == "settings":
-            view = self.settings_view
-        elif page_id == "locations":
-            view = self.locations_view
-        elif page_id == "purchase":
-            view = self.purchase_view
-        else:
-            return
+            mapping = {
+                "dashboard": getattr(self, "dashboard_view", None),
+                "items": getattr(self, "items_view", None),
+                "suppliers": getattr(self, "suppliers_view", None),
+                "stock_in": getattr(self, "stock_in_view", None),
+                "stock_out": getattr(self, "stock_out_view", None),
+                "reports": getattr(self, "reports_view", None),
+                "users": getattr(self, "users_view", None),
+                "devices": getattr(self, "devices_view", None),
+                "settings": getattr(self, "settings_view", None),
+                "locations": getattr(self, "locations_view", None),
+                "purchase": getattr(self, "purchase_view", None),
+            }
 
-        # Ensure fresh data if view has a refresh/load method
-        if hasattr(view, 'refresh'):
-            view.refresh()
-        elif hasattr(view, 'load_history'):
-            view.load_history()
-        elif hasattr(view, 'load_data'):
-            view.load_data()
+            view = mapping.get(page_id)
+            if not view: return
 
-        # Update stacked widget only if view changed
-        if self.stack.currentWidget() != view:
-            # Check if view is already in stack
-            if self.stack.indexOf(view) == -1:
-                self.stack.addWidget(view)
-            self.stack.setCurrentWidget(view)
+            if hasattr(view, 'refresh'):
+                view.refresh()
+            elif hasattr(view, 'load_history'):
+                view.load_history()
+            elif hasattr(view, 'load_data'):
+                view.load_data()
+
+            if self.stack.currentWidget() != view:
+                if self.stack.indexOf(view) == -1:
+                    self.stack.addWidget(view)
+                self.stack.setCurrentWidget(view)
+        except Exception as e:
+            app_logger.error(f"Navigation error to {page_id}: {e}")
+            QMessageBox.critical(self, "خطأ في التنقل", f"فشل الانتقال إلى هذه الصفحة: {str(e)}")
 
     def load_dashboard(self):
         if "dashboard" in self.nav_buttons:
@@ -210,3 +208,9 @@ class MainWindow(QMainWindow):
         self.login_window = LoginView()
         self.login_window.show()
         self.close()
+
+    def closeEvent(self, event):
+        # Cleanup session on close
+        if hasattr(self, 'db'):
+            Session.remove()
+        event.accept()

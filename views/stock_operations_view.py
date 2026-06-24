@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
 from PySide6.QtCore import Qt, Signal, QTimer
 import qtawesome as qta
 from utils.auth import AuthManager
+from database.session import Session
 
 class StockOperationsView(QWidget):
     data_changed = Signal()
@@ -113,15 +114,8 @@ class StockOperationsView(QWidget):
 
         self.load_items()
 
-        scan_item_btn = QPushButton()
-        scan_item_btn.setIcon(qta.icon("fa5s.qrcode", color="#1a2a6c"))
-        scan_item_btn.setFixedSize(50, 50)
-        scan_item_btn.setToolTip("مسح QR كود لاختيار صنف")
-        scan_item_btn.clicked.connect(self.handle_item_scan)
-
         item_h_layout = QHBoxLayout()
         item_h_layout.addWidget(self.item_combo)
-        item_h_layout.addWidget(scan_item_btn)
 
         selector_grid.addWidget(QLabel("الصنف:"), 0, 0)
         selector_grid.addLayout(item_h_layout, 0, 1, 1, 3)
@@ -380,7 +374,7 @@ class StockOperationsView(QWidget):
             query = """
                 SELECT mi.price FROM movement_items mi
                 JOIN movements m ON mi.movement_id = m.id
-                WHERE mi.item_id = %s AND m.type = 'IN'
+                WHERE mi.item_id = :p1 AND m.type = 'IN'
                 ORDER BY m.date DESC LIMIT 1
             """
             res = db.execute_query(query, (item_id,))
@@ -388,17 +382,6 @@ class StockOperationsView(QWidget):
                 self.price_input.setText(f"{res[0]['price']:.2f}")
             else:
                 self.price_input.setText("0.00")
-
-    def handle_item_scan(self):
-        code, ok = QInputDialog.getText(self, "مسح QR", "يرجى مسح كود QR الصنف:")
-        if ok and code:
-            for i in range(self.item_combo.count()):
-                item_data = self.item_combo.itemData(i)
-                i_code = item_data.code if hasattr(item_data, 'code') else item_data.get('code')
-                if i_code == code:
-                    self.item_combo.setCurrentIndex(i)
-                    return
-            QMessageBox.warning(self, "تنبيه", "الصنف غير موجود في القائمة")
 
     def load_items(self):
         self.item_combo.blockSignals(True)
@@ -593,3 +576,7 @@ class StockOperationsView(QWidget):
             self.receiver_name.clear()
             self.reason_input.clear()
         self.load_items()
+
+    def closeEvent(self, event):
+        Session.remove()
+        event.accept()

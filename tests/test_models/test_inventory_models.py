@@ -6,7 +6,7 @@ def test_new_user():
     user = User(username="testuser", full_name="Test User", role="admin")
     assert user.username == "testuser"
     assert user.role == "admin"
-    assert user.status == "active"
+    assert user.is_active is True
 
 def test_new_item():
     item = Item(code="ITM001", name="Test Item", current_stock=10.5)

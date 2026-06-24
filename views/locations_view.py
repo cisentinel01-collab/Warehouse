@@ -9,6 +9,7 @@ from models.inventory import Location
 class LocationsView(QWidget):
     def __init__(self):
         super().__init__()
+        # Every view should use a local scoped session or the global scoped session object
         self.db = Session()
         self.setup_ui()
 
@@ -41,33 +42,42 @@ class LocationsView(QWidget):
         self.refresh()
 
     def refresh(self):
-        term = self.search_input.text()
-        query = self.db.query(Location).filter(Location.active == True)
-        if term:
-            query = query.filter(Location.name.ilike(f"%{term}%"))
+        try:
+            term = self.search_input.text()
+            query = self.db.query(Location).filter(Location.active == True)
+            if term:
+                query = query.filter(Location.name.ilike(f"%{term}%"))
 
-        locations = query.all()
+            locations = query.all()
 
-        self.table.setRowCount(0)
-        for loc in locations:
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(loc.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(str(loc.name)))
-            self.table.setItem(row, 2, QTableWidgetItem(str(loc.description or "")))
+            self.table.setRowCount(0)
+            for loc in locations:
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                self.table.setItem(row, 0, QTableWidgetItem(str(loc.id)))
+                self.table.setItem(row, 1, QTableWidgetItem(str(loc.name)))
+                self.table.setItem(row, 2, QTableWidgetItem(str(loc.description or "")))
 
-            del_btn = QPushButton()
-            del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
-            del_btn.setFixedSize(30, 30)
-            del_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
-            del_btn.clicked.connect(lambda _, l=loc: self.handle_delete(l))
-            self.table.setCellWidget(row, 3, del_btn)
+                del_btn = QPushButton()
+                del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
+                del_btn.setFixedSize(30, 30)
+                del_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
+                del_btn.clicked.connect(lambda _, l=loc: self.handle_delete(l))
+                self.table.setCellWidget(row, 3, del_btn)
+        except Exception as e:
+            from app_logging.app_logger import app_logger
+            app_logger.error(f"LocationsView refresh error: {e}")
+            self.db.rollback()
 
     def handle_delete(self, loc):
         if QMessageBox.question(self, "تأكيد", f"حذف الموقع '{loc.name}'؟") == QMessageBox.Yes:
-            loc.active = False
-            self.db.commit()
-            self.refresh()
+            try:
+                loc.active = False
+                self.db.commit()
+                self.refresh()
+            except Exception as e:
+                self.db.rollback()
+                QMessageBox.critical(self, "خطأ", f"فشل الحذف: {str(e)}")
 
     def show_add_dialog(self):
         from PySide6.QtWidgets import QDialog, QFormLayout
@@ -93,8 +103,17 @@ class LocationsView(QWidget):
             QMessageBox.warning(self, "تنبيه", "الاسم مطلوب")
             return
 
-        new_loc = Location(name=name, description=desc)
-        self.db.add(new_loc)
-        self.db.commit()
-        dialog.accept()
-        self.refresh()
+        try:
+            new_loc = Location(name=name, description=desc)
+            self.db.add(new_loc)
+            self.db.commit()
+            dialog.accept()
+            self.refresh()
+        except Exception as e:
+            self.db.rollback()
+            QMessageBox.critical(self, "خطأ", f"فشل الحفظ: {str(e)}")
+
+    def closeEvent(self, event):
+        from database.session import Session
+        Session.remove()
+        event.accept()

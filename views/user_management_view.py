@@ -1,13 +1,18 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-                             QTableWidgetItem, QPushButton, QLineEdit, QLabel,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableView,
+                             QPushButton, QLineEdit, QLabel,
                              QHeaderView, QGroupBox, QDialog, QFormLayout, QComboBox, QMessageBox)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThreadPool
 import qtawesome as qta
+from utils.auth import AuthManager
+from views_components.enterprise_table_model import EnterpriseTableModel
+from workers.worker import Worker
+from database.session import Session
 
 class UserManagementView(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
+        self.threadpool = QThreadPool()
         self.setup_ui()
 
     def setup_ui(self):
@@ -23,41 +28,32 @@ class UserManagementView(QWidget):
         toolbar.addStretch()
         layout.addLayout(toolbar)
 
-        self.table = QTableWidget()
-        self.table.setColumnCount(5) # ID, Name, Username, Role, Actions
-        self.table.setHorizontalHeaderLabels(["المعرف", "الاسم الكامل", "اسم المستخدم", "الدور", "إجراءات"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(self.table)
+        self.view = QTableView()
+        self.view.setEditTriggers(QTableView.NoEditTriggers)
+        self.view.setSelectionBehavior(QTableView.SelectRows)
+        self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        layout.addWidget(self.view)
+
+        self.headers = ["full_name", "username", "role", "is_active"]
+        self.model = EnterpriseTableModel([], self.headers)
+        self.view.setModel(self.model)
+
         self.refresh()
 
     def refresh(self):
-        users = self.controller.get_all_users()
-        self.table.setRowCount(0)
-        for u in users:
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(u.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(str(u.full_name)))
-            self.table.setItem(row, 2, QTableWidgetItem(str(u.username)))
+        worker = Worker(self.controller.get_all_users)
+        worker.signals.result.connect(self.on_data_loaded)
+        self.threadpool.start(worker)
 
-            role_map = {"warehouse_manager": "مسؤول مخزن", "follow_up": "المتابعة", "admin": "المدير العام"}
-            self.table.setItem(row, 3, QTableWidgetItem(role_map.get(u.role, u.role)))
-
-            del_btn = QPushButton()
-            del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
-            del_btn.setFixedSize(35, 35)
-            del_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
-            del_btn.clicked.connect(lambda _, user=u: self.handle_delete(user))
-            self.table.setCellWidget(row, 4, del_btn)
-
-    def handle_delete(self, user):
-        if user.username == 'admin':
-            QMessageBox.warning(self, "تنبيه", "لا يمكن حذف حساب المدير الرئيسي")
-            return
-
-        if QMessageBox.question(self, "تأكيد الحذف", f"هل أنت متأكد من حذف المستخدم '{user.username}'؟") == QMessageBox.Yes:
-            self.controller.delete_user(user.id)
-            self.refresh()
+    def on_data_loaded(self, users):
+        data = [
+            {
+                "id": u.id, "full_name": u.full_name, "username": u.username,
+                "role": u.role, "is_active": "نشط" if u.is_active else "معطل"
+            }
+            for u in users
+        ]
+        self.model.update_data(data)
 
     def show_add_dialog(self):
         from utils.validator import Validator
@@ -98,3 +94,12 @@ class UserManagementView(QWidget):
         self.controller.add_user(data)
         dialog.accept()
         self.refresh()
+
+    def handle_delete(self, user_id):
+        if QMessageBox.question(self, "تأكيد", "هل أنت متأكد من تعطيل هذا المستخدم؟") == QMessageBox.Yes:
+            if self.controller.delete_user(user_id):
+                self.refresh()
+
+    def closeEvent(self, event):
+        Session.remove()
+        event.accept()

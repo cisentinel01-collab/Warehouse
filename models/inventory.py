@@ -44,17 +44,23 @@ class Item(Base):
     __tablename__ = "items"
     id = Column(Integer, primary_key=True)
     code = Column(String(50), unique=True, nullable=False, index=True)
-    barcode = Column(String(100), unique=True, index=True)
+    barcode = Column(String(100), unique=True, index=True, nullable=True)
     name = Column(String(100), nullable=False, index=True)
     category = Column(String(50), index=True)
     uom_id = Column(Integer, ForeignKey("uoms.id"))
+    location_id = Column(Integer, ForeignKey("locations.id"))
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"))
     tracking_type = Column(String(20), default="none") # none, serial, lot
     min_stock = Column(Float, default=0.0)
     current_stock = Column(Float, default=0.0)
+    image_path = Column(String(500))
+    description = Column(Text)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     uom = relationship("UnitOfMeasure")
+    location = relationship("Location")
+    supplier = relationship("Supplier")
 
 class StockLot(Base):
     """Also known as Batch in the UI"""

@@ -9,8 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL, -- 'admin', 'warehouse_manager', 'follow_up'
     job_title TEXT,
     department TEXT,
-    status TEXT DEFAULT 'active',
-    is_active INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -22,7 +21,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     email TEXT,
     address TEXT,
     notes TEXT,
-    is_deleted INTEGER DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -31,7 +30,7 @@ CREATE TABLE IF NOT EXISTS locations (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
-    is_deleted INTEGER DEFAULT 0
+    active BOOLEAN DEFAULT TRUE
 );
 
 -- Items Table
@@ -44,11 +43,11 @@ CREATE TABLE IF NOT EXISTS items (
     unit TEXT,
     location_id INTEGER REFERENCES locations(id),
     supplier_id INTEGER REFERENCES suppliers(id),
-    min_stock INTEGER DEFAULT 0,
-    current_stock INTEGER DEFAULT 0,
+    min_stock REAL DEFAULT 0,
+    current_stock REAL DEFAULT 0,
     image_path TEXT,
     description TEXT,
-    is_deleted INTEGER DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -57,7 +56,7 @@ CREATE TABLE IF NOT EXISTS batches (
     id SERIAL PRIMARY KEY,
     item_id INTEGER NOT NULL REFERENCES items(id),
     batch_number TEXT NOT NULL,
-    quantity INTEGER DEFAULT 0,
+    quantity REAL DEFAULT 0,
     production_date DATE,
     expiry_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -88,7 +87,7 @@ CREATE TABLE IF NOT EXISTS movement_items (
     movement_id INTEGER NOT NULL REFERENCES movements(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
     batch_id INTEGER REFERENCES batches(id),
-    quantity INTEGER NOT NULL,
+    quantity REAL NOT NULL,
     price REAL DEFAULT 0
 );
 
@@ -108,7 +107,7 @@ CREATE TABLE IF NOT EXISTS po_items (
     id SERIAL PRIMARY KEY,
     po_id INTEGER NOT NULL REFERENCES purchase_orders(id),
     item_id INTEGER NOT NULL REFERENCES items(id),
-    quantity INTEGER NOT NULL,
+    quantity REAL NOT NULL,
     unit_price REAL DEFAULT 0,
     total REAL DEFAULT 0
 );
@@ -135,7 +134,8 @@ CREATE TABLE IF NOT EXISTS settings (
     logo_path TEXT,
     address TEXT,
     phone TEXT,
-    email TEXT
+    email TEXT,
+    language TEXT DEFAULT 'ar'
 );
 
 -- Initialize default settings
@@ -145,9 +145,10 @@ WHERE NOT EXISTS (SELECT 1 FROM settings);
 
 -- Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_items_code ON items(code);
+CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(barcode);
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
-CREATE INDEX IF NOT EXISTS idx_items_is_deleted ON items(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_items_active ON items(active);
 CREATE INDEX IF NOT EXISTS idx_items_created_at ON items(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_movements_type ON movements(type);
