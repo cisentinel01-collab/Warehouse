@@ -21,10 +21,20 @@ class DashboardService:
             StockLot.quantity > 0
         ).count()
 
-        # New: Total Inventory Value (requires price tracking)
-        # For now, let's estimate or use last movement price if available
-        # Implementation depends on business logic, here we'll use a placeholder or sum
-        # But for "Smart Dashboard", we should provide more KPIs
+        # Total Inventory Value calculation (Sum of current_stock * last_purchase_price)
+        total_value = 0.0
+        items = self.db.query(Item).filter(Item.current_stock > 0).all()
+        for item in items:
+            # Get last purchase price for this item
+            last_price = self.db.execute(text(
+                "SELECT price FROM movement_items mi "
+                "JOIN movements m ON mi.movement_id = m.id "
+                "WHERE mi.item_id = :item_id AND m.type = 'IN' "
+                "ORDER BY m.date DESC LIMIT 1"
+            ), {"item_id": item.id}).scalar()
+
+            if last_price:
+                total_value += (item.current_stock * float(last_price))
 
         # Recent Movements (Last 7 Days)
         last_week = datetime.now() - timedelta(days=7)
@@ -41,5 +51,6 @@ class DashboardService:
             "expiring_soon": expiring_soon,
             "inbound_7d": inbound,
             "outbound_7d": outbound,
-            "category_dist": category_dist
+            "category_dist": category_dist,
+            "total_value": total_value
         }

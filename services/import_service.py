@@ -9,39 +9,39 @@ class ImportService:
         pass
 
     def extract_from_excel(self, file_path: str) -> List[Dict]:
-        """Extracts items, quantities, and prices from Excel."""
+        """Extracts items, quantities, and prices from Excel with heuristic mapping."""
         try:
             df = pd.read_excel(file_path)
-            # Basic normalization: find columns that look like Name, Qty, Price
             results = []
 
-            # Map common Arabic/English headers
+            # Smart Mapping using substring matching
             mapping = {
-                'اسم الصنف': 'name', 'item': 'name', 'description': 'name', 'الصنف': 'name',
-                'الكمية': 'quantity', 'qty': 'quantity', 'quantity': 'quantity', 'العدد': 'quantity',
-                'السعر': 'price', 'price': 'price', 'سعر الوحدة': 'price', 'unit price': 'price',
-                'الكود': 'code', 'code': 'code', 'barcode': 'code'
+                'name': ['اسم', 'صنف', 'item', 'description', 'details'],
+                'quantity': ['كمية', 'عدد', 'qty', 'quantity', 'amount'],
+                'price': ['سعر', 'سعر الوحدة', 'price', 'rate', 'cost'],
+                'code': ['كود', 'رقم الصنف', 'code', 'sku', 'part']
             }
 
-            df.columns = [str(c).strip().lower() for c in df.columns]
-
-            for index, row in df.iterrows():
-                extracted = {}
+            # Find best column for each field
+            col_map = {}
+            for field, keywords in mapping.items():
                 for col in df.columns:
-                    for key, val in mapping.items():
-                        if key.lower() in col:
-                            extracted[val] = row[col]
+                    if any(key.lower() in str(col).lower() for key in keywords):
+                        col_map[field] = col
+                        break
 
-                if extracted.get('name') and extracted.get('quantity'):
-                    results.append({
-                        'code': str(extracted.get('code', '')),
-                        'name': str(extracted.get('name', '')),
-                        'quantity': float(extracted.get('quantity', 0)),
-                        'price': float(extracted.get('price', 0))
-                    })
+            for _, row in df.iterrows():
+                if pd.isna(row.get(col_map.get('name'))): continue
+
+                results.append({
+                    'code': str(row.get(col_map.get('code'), '')).split('.')[0] if not pd.isna(row.get(col_map.get('code'))) else '',
+                    'name': str(row.get(col_map.get('name'))),
+                    'quantity': float(row.get(col_map.get('quantity'), 0)) if not pd.isna(row.get(col_map.get('quantity'))) else 0,
+                    'price': float(row.get(col_map.get('price'), 0)) if not pd.isna(row.get(col_map.get('price'))) else 0
+                })
             return results
         except Exception as e:
-            print(f"Excel Extraction Error: {e}")
+            print(f"Smart Excel Extraction Error: {e}")
             return []
 
     def extract_from_pdf(self, file_path: str) -> List[Dict]:

@@ -29,11 +29,13 @@ class DashboardView(QWidget):
         self.total_items_card = self.create_stat_card("إجمالي الأصناف", "0", "fa5s.boxes", "#1a2a6c")
         self.low_stock_card = self.create_stat_card("النواقص", "0", "fa5s.exclamation-triangle", "#e74c3c")
         self.expiring_card = self.create_stat_card("أصناف قاربت الانتهاء", "0", "fa5s.calendar-times", "#f39c12")
-        self.weekly_activity_card = self.create_stat_card("حركات الأسبوع (IN/OUT)", "0/0", "fa5s.exchange-alt", "#27ae60")
+        self.total_value_card = self.create_stat_card("قيمة المخزون", "0.00", "fa5s.money-bill-wave", "#27ae60")
+        self.weekly_activity_card = self.create_stat_card("حركات الأسبوع (IN/OUT)", "0/0", "fa5s.exchange-alt", "#2980b9")
 
         stats_h_layout.addWidget(self.total_items_card)
         stats_h_layout.addWidget(self.low_stock_card)
         stats_h_layout.addWidget(self.expiring_card)
+        stats_h_layout.addWidget(self.total_value_card)
         stats_h_layout.addWidget(self.weekly_activity_card)
         layout.addLayout(stats_h_layout)
 
@@ -112,6 +114,7 @@ class DashboardView(QWidget):
             self.total_items_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('total_items', 0)))
             self.low_stock_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('low_stock', 0)))
             self.expiring_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('expiring_soon', 0)))
+            self.total_value_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_value', 0):,.2f}")
             self.weekly_activity_card.findChild(QLabel, "ValueLabel").setText(
                 f"{stats.get('inbound_7d', 0)} / {stats.get('outbound_7d', 0)}"
             )
