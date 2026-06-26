@@ -9,11 +9,14 @@ class ImportService:
         pass
 
     def extract_from_excel(self, file_path: str) -> List[Dict]:
-        """v4 Enterprise-Grade Extraction with structural analysis."""
+        """v5 Beast-Mode Extraction with structural intelligence and header discovery."""
         from thefuzz import fuzz, process
         try:
             df = pd.read_excel(file_path, header=None)
-            # 1. Structural Analysis: Find the main table body
+            # Strategy 1: Data Cleaning (Drop empty perimeter)
+            df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
+
+            # 1. Beast Structural Analysis: Discover main table body
             # We look for the row with the most contentful cells
             max_cols = 0
             header_row_idx = 0
@@ -49,26 +52,45 @@ class ImportService:
                 if best_match:
                     col_map[field] = best_match
 
-            # 3. Intelligent Data Cleaning & Mapping
+            # 3. Beast Pattern Fallback: If col_map is missing fields, scan row-by-row
             results = []
-            for _, row in df.iterrows():
-                name_val = row.get(col_map.get('name'))
-                if pd.isna(name_val) or str(name_val).strip() == "": continue
-                if any(x in str(name_val).lower() for x in ['total', 'sum', 'إجمالي', 'مجموع']): continue
+            for idx, row in df.iterrows():
+                name_val = row.get(col_map.get('name')) if col_map.get('name') is not None else None
 
-                def clean_num(val):
-                    if pd.isna(val) or val == "": return 0.0
-                    try:
-                        # Handle values like "1,200.50 SAR"
-                        s = re.sub(r'[^\d.]', '', str(val))
-                        return float(s) if s else 0.0
-                    except: return 0.0
+                # If fuzzy matching failed, try brute force pattern matching on the row
+                if name_val is None or pd.isna(name_val):
+                    # Look for first string that looks like a name and adjacent numbers
+                    candidates = [x for x in row.values if not pd.isna(x)]
+                    if len(candidates) >= 2:
+                        # Simple heuristic: Item name usually long string, Qty/Price are floats
+                        str_candidates = [str(x) for x in candidates if isinstance(x, str) and len(str(x)) > 3]
+                        num_candidates = [float(re.sub(r'[^\d.]', '', str(x))) for x in candidates if str(x).replace('.','').isdigit()]
+                        if str_candidates and num_candidates:
+                            name_val = str_candidates[0]
+                            # Assume first num is qty, second is price
+                            qty_val = num_candidates[0]
+                            price_val = num_candidates[1] if len(num_candidates) > 1 else 0.0
+                            code_val = ""
+                        else: continue
+                    else: continue
+                else:
+                    def clean_num(val):
+                        if pd.isna(val) or val == "": return 0.0
+                        try:
+                            s = re.sub(r'[^\d.]', '', str(val))
+                            return float(s) if s else 0.0
+                        except: return 0.0
+                    qty_val = clean_num(row.get(col_map.get('quantity')))
+                    price_val = clean_num(row.get(col_map.get('price')))
+                    code_val = str(row.get(col_map.get('code'), '')).split('.')[0] if not pd.isna(row.get(col_map.get('code'))) else ''
+
+                if not name_val or any(x in str(name_val).lower() for x in ['total', 'sum', 'إجمالي', 'مجموع']): continue
 
                 results.append({
-                    'code': str(row.get(col_map.get('code'), '')).split('.')[0] if not pd.isna(row.get(col_map.get('code'))) else '',
+                    'code': code_val,
                     'name': str(name_val).strip(),
-                    'quantity': clean_num(row.get(col_map.get('quantity'))),
-                    'price': clean_num(row.get(col_map.get('price')))
+                    'quantity': qty_val,
+                    'price': price_val
                 })
             return results
         except Exception as e:

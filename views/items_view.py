@@ -82,7 +82,8 @@ class ItemsView(QWidget):
         layout.addWidget(self.view)
 
         self.headers = ["code", "name", "category", "unit", "current_stock", "min_stock"]
-        self.model = EnterpriseTableModel([], self.headers)
+        self.translated_headers = [tr("item_code"), tr("item_name"), tr("category"), tr("unit"), tr("current_stock"), tr("min_stock")]
+        self.model = EnterpriseTableModel([], self.headers, self.translated_headers)
         self.view.setModel(self.model)
 
         self.refresh()
@@ -100,12 +101,14 @@ class ItemsView(QWidget):
         from utils.translation_manager import tr
         data = []
         for i in items:
+            # Prefer 'unit' text column, fallback to uom.name
+            u_text = i.unit if hasattr(i, 'unit') and i.unit else (i.uom.name if i.uom else "")
             data.append({
                 "id": i.id,
                 "code": i.code,
                 "name": i.name,
                 "category": i.category,
-                "unit": i.uom.name if i.uom else "",
+                "unit": u_text,
                 "current_stock": i.current_stock,
                 "min_stock": i.min_stock
             })
@@ -181,14 +184,7 @@ class ItemDialog(QDialog):
         self.category_input = QLineEdit()
         self.category_input.setPlaceholderText("مثال: قطع غيار")
 
-        self.uom_combo = QComboBox()
-        from database.session import Session
-        from models.inventory import UnitOfMeasure
-        db = Session()
-        uoms = db.query(UnitOfMeasure).all()
-        for u in uoms:
-            self.uom_combo.addItem(u.name, u.id)
-        db.close()
+        self.uom_input = QLineEdit()
 
         self.min_stock_input = QSpinBox()
         self.min_stock_input.setMaximum(1000000)
@@ -209,13 +205,13 @@ class ItemDialog(QDialog):
             self.supplier_combo.addItem(s.name, s.id)
         db.close()
 
-        layout.addRow("كود الصنف:", self.code_input)
-        layout.addRow("اسم الصنف:", self.name_input)
-        layout.addRow("الفئة:", self.category_input)
-        layout.addRow("وحدة القياس:", self.uom_combo)
-        layout.addRow("موقع التخزين:", self.location_combo)
-        layout.addRow("المورد المفضل:", self.supplier_combo)
-        layout.addRow("الحد الأدنى:", self.min_stock_input)
+        layout.addRow(tr("item_code") + ":", self.code_input)
+        layout.addRow(tr("item_name") + ":", self.name_input)
+        layout.addRow(tr("category") + ":", self.category_input)
+        layout.addRow(tr("unit") + ":", self.uom_input)
+        layout.addRow(tr("locations") + ":", self.location_combo)
+        layout.addRow(tr("suppliers") + ":", self.supplier_combo)
+        layout.addRow(tr("min_stock") + ":", self.min_stock_input)
 
         btns = QHBoxLayout()
         save_btn = QPushButton("حفظ")
@@ -240,7 +236,7 @@ class ItemDialog(QDialog):
             "code": self.code_input.text(),
             "name": self.name_input.text(),
             "category": self.category_input.text(),
-            "uom_id": self.uom_combo.currentData(),
+            "unit": self.uom_input.text(),
             "location_id": self.location_combo.currentData(),
             "supplier_id": self.supplier_combo.currentData(),
             "min_stock": self.min_stock_input.value()

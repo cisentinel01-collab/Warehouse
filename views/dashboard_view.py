@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtCharts import QChart, QChartView, QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QPieSeries, QPieSlice
 from PySide6.QtGui import QPainter, QLinearGradient, QGradient, QColor
 import qtawesome as qta
+from utils.translation_manager import tr, tr_manager
 
 class DashboardView(QWidget):
     def __init__(self, service):
@@ -42,7 +43,7 @@ class DashboardView(QWidget):
 
         header_h.addStretch()
 
-        control_label = QLabel("ENTERPRISE COMMAND CENTER v2.0")
+        control_label = QLabel(tr("system_subtitle").upper())
         control_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #7f8c8d; border: 1px solid #333; padding: 5px 15px; border-radius: 15px;")
         header_h.addWidget(control_label)
 
@@ -52,18 +53,19 @@ class DashboardView(QWidget):
         stats_h_layout = QHBoxLayout()
         stats_h_layout.setSpacing(20)
 
-        from utils.translation_manager import tr
         self.total_items_card = self.create_stat_card(tr("total_items"), "0", "fa5s.boxes", "#1a2a6c")
         self.low_stock_card = self.create_stat_card(tr("low_stock"), "0", "fa5s.exclamation-triangle", "#e74c3c")
         self.expiring_card = self.create_stat_card(tr("expiring_soon"), "0", "fa5s.calendar-times", "#f39c12")
         self.total_value_card = self.create_stat_card(tr("total_value"), "0.00", "fa5s.money-bill-wave", "#27ae60")
         self.weekly_activity_card = self.create_stat_card(tr("weekly_activity"), "0/0", "fa5s.exchange-alt", "#2980b9")
+        self.aging_items_card = self.create_stat_card(tr("aging_items"), "0", "fa5s.history", "#9b59b6")
 
         stats_h_layout.addWidget(self.total_items_card)
         stats_h_layout.addWidget(self.low_stock_card)
         stats_h_layout.addWidget(self.expiring_card)
         stats_h_layout.addWidget(self.total_value_card)
         stats_h_layout.addWidget(self.weekly_activity_card)
+        stats_h_layout.addWidget(self.aging_items_card)
         layout.addLayout(stats_h_layout)
 
         # Middle Section (Charts)
@@ -98,11 +100,11 @@ class DashboardView(QWidget):
         alerts_frame = QFrame()
         alerts_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
         alerts_vbox = QVBoxLayout(alerts_frame)
-        alerts_header = QLabel("SMART SYSTEM ALERTS")
+        alerts_header = QLabel(tr("smart_alerts"))
         alerts_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
         alerts_vbox.addWidget(alerts_header)
 
-        self.alerts_label = QLabel("SYSTEM OPERATING AT PEAK EFFICIENCY.")
+        self.alerts_label = QLabel(tr("system_status_ok"))
         self.alerts_label.setStyleSheet("color: #27ae60; font-size: 16px; font-weight: bold;")
         self.alerts_label.setWordWrap(True)
         alerts_vbox.addWidget(self.alerts_label)
@@ -113,7 +115,7 @@ class DashboardView(QWidget):
         top_items_frame = QFrame()
         top_items_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
         top_vbox = QVBoxLayout(top_items_frame)
-        top_header = QLabel("TOP MOVING ITEMS (30D)")
+        top_header = QLabel(tr("top_moving_items"))
         top_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
         top_vbox.addWidget(top_header)
 
@@ -172,6 +174,7 @@ class DashboardView(QWidget):
             self.low_stock_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('low_stock', 0)))
             self.expiring_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('expiring_soon', 0)))
             self.total_value_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_value', 0):,.2f}")
+            self.aging_items_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('aging_items', 0)))
 
             # Calculate weekly summary
             trends = stats.get('trends', [])
@@ -180,7 +183,6 @@ class DashboardView(QWidget):
             self.weekly_activity_card.findChild(QLabel, "ValueLabel").setText(f"{int(total_in)} / {int(total_out)}")
 
             # Update Bar Chart (Detailed Daily Trend)
-            from utils.translation_manager import tr
             self.activity_chart.removeAllSeries()
             set_in = QBarSet(tr("inbound"))
             set_out = QBarSet(tr("outbound"))
@@ -216,15 +218,15 @@ class DashboardView(QWidget):
             # Update Alerts
             alert_text = []
             if stats.get('low_stock', 0) > 0:
-                alert_text.append(f"⚠️ يوجد {stats['low_stock']} صنف تحت حد الطلب.")
+                alert_text.append(f"⚠️ {tr('low_stock_alert')}: {stats['low_stock']}")
             if stats.get('expiring_soon', 0) > 0:
-                alert_text.append(f"⏰ {stats['expiring_soon']} أصناف ستنتهي صلاحيتها قريباً.")
+                alert_text.append(f"⏰ {tr('expiring_soon_alert')}: {stats['expiring_soon']}")
 
             if alert_text:
                 self.alerts_label.setText("\n".join(alert_text))
                 self.alerts_label.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 16px;")
             else:
-                self.alerts_label.setText("SYSTEM OPERATING AT PEAK EFFICIENCY.")
+                self.alerts_label.setText(tr("system_status_ok"))
                 self.alerts_label.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 16px;")
 
             # Update Top Items

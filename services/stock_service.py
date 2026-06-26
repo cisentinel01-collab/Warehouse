@@ -15,9 +15,27 @@ class StockService:
     def record_movement(self, movement_data: dict, items_list: list) -> bool:
         """
         Record movement, update quants, and create accounting entries.
-        items_list: list of {'item_id', 'qty', 'price', 'bin_id', 'lot_number', 'expiry'}
         """
+        from models.inventory import Movement, MovementItem
         try:
+            # 1. Create the Movement Record (Persistence)
+            # Ensure data mapping is correct for the model
+            m_obj = Movement(
+                type=movement_data['type'],
+                reference_no=movement_data['reference_no'],
+                date=datetime.now(),
+                supplier_id=movement_data.get('supplier_id'),
+                received_by=movement_data.get('received_by'),
+                issuing_entity=movement_data.get('issuing_entity'),
+                receiver_name=movement_data.get('receiver_name'),
+                notes=movement_data.get('notes', ''),
+                discount_percent=float(movement_data.get('discount_percent', 0)),
+                subtotal=0.0,
+                final_total=0.0
+            )
+            self.db.add(m_obj)
+            self.db.flush()
+
             total_value = 0.0
             # Ensure at least one bin exists to satisfy FK constraint
             default_bin = self.db.query(Bin).first()
@@ -34,13 +52,23 @@ class StockService:
                 item = self.db.query(Item).filter(Item.id == it['item_id']).first()
                 if not item: continue
 
-                qty = it['qty']
-                price = it['price']
-                total_value += (qty * price)
+                qty = float(it['qty'])
+                price = float(it['price'])
+                line_total = qty * price
+                total_value += line_total
 
                 # Robust Bin/Lot Identification
                 bin_id = it.get('bin_id')
                 if not bin_id or bin_id == 0: bin_id = default_bin.id
+
+                # Persistence: Line Items
+                m_item = MovementItem(
+                    movement_id=m_obj.id,
+                    item_id=item.id,
+                    quantity=qty,
+                    price=price
+                )
+                self.db.add(m_item)
 
                 if movement_data['type'] == 'IN':
                     lot_num = it.get('lot_number', 'DEFAULT')
@@ -65,6 +93,7 @@ class StockService:
                         quant = StockQuant(item_id=item.id, bin_id=bin_id, lot_id=lot.id, quantity=0)
                         self.db.add(quant)
                     quant.quantity += qty
+                    m_item.batch_id = lot.id
 
                 else: # OUT
                     item.current_stock -= qty
@@ -73,6 +102,12 @@ class StockService:
                     ).first()
                     if quant:
                         quant.quantity -= qty
+
+            # Finalize Totals
+            m_obj.subtotal = total_value
+            disc_amt = (total_value * m_obj.discount_percent) / 100
+            m_obj.discount_amount = disc_amt
+            m_obj.final_total = total_value - disc_amt
 
             # 2. Automated Accounting Entry
             inv_acc = self.db.query(Account).filter(Account.code == '1001').first()

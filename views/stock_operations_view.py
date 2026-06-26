@@ -292,49 +292,62 @@ class StockOperationsView(QWidget):
             self.update_summary()
 
     def setup_history_tab(self):
+        from PySide6.QtWidgets import QTableView
+        from views_components.enterprise_table_model import EnterpriseTableModel
+        from PySide6.QtCore import QThreadPool
+        from utils.translation_manager import tr
+
+        self.threadpool = QThreadPool.globalInstance()
         layout = QVBoxLayout(self.history_tab)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        self.history_table = QTableWidget()
-        self.history_table.setColumnCount(5)
-        self.history_table.setHorizontalHeaderLabels(["التاريخ", "رقم الفاتورة", "المورد/المستلم", "الإجمالي", "إجراءات"])
-        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.history_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.history_table.horizontalHeader().setDefaultSectionSize(140)
-        self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.history_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.history_table.doubleClicked.connect(self.handle_history_double_click)
-        layout.addWidget(self.history_table)
+        self.history_view = QTableView()
+        self.history_view.setEditTriggers(QTableView.NoEditTriggers)
+        self.history_view.setSelectionBehavior(QTableView.SelectRows)
+        self.history_view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.history_view.doubleClicked.connect(self.handle_history_double_click)
+        layout.addWidget(self.history_view)
 
-        refresh_btn = QPushButton("تحديث السجل")
+        self.history_headers = ["date", "reference_no", "party", "final_total"]
+        self.history_model = EnterpriseTableModel([], self.history_headers)
+        self.history_view.setModel(self.history_model)
+
+        refresh_btn = QPushButton(tr("refresh_history"))
         refresh_btn.clicked.connect(self.load_history)
         layout.addWidget(refresh_btn)
 
         self.load_history()
 
     def load_history(self):
-        self.history_table.setUpdatesEnabled(False)
-        history = self.controller.get_movement_history(type=self.op_type, limit=100)
-        self.history_table.setRowCount(0)
-        for h in history:
-            row = self.history_table.rowCount()
-            self.history_table.insertRow(row)
-            party = h['supplier_name'] if self.op_type == 'IN' else h['receiver_name']
-            self.history_table.setItem(row, 0, QTableWidgetItem(str(h['date'])))
-            self.history_table.setItem(row, 1, QTableWidgetItem(str(h['reference_no'])))
-            self.history_table.setItem(row, 2, QTableWidgetItem(str(party or "")))
-            self.history_table.setItem(row, 3, QTableWidgetItem(f"{h['final_total']:,.2f}"))
+        from workers.worker import Worker
+        worker = Worker(self.controller.get_movement_history, type=self.op_type, limit=100)
+        worker.signals.result.connect(self.on_history_loaded)
+        self.threadpool.start(worker)
 
-            view_pdf_btn = QPushButton("عرض PDF")
-            view_pdf_btn.clicked.connect(lambda _, m_id=h['id']: self.view_movement_pdf(m_id))
-            self.history_table.setCellWidget(row, 4, view_pdf_btn)
-        self.history_table.setUpdatesEnabled(True)
+    def on_history_loaded(self, history):
+        data = []
+        for h in history:
+            # Handle model object or dict
+            if self.op_type == 'IN':
+                party_obj = getattr(h, 'supplier', None)
+                party_name = party_obj.name if party_obj else getattr(h, 'supplier_name', 'N/A')
+            else:
+                party_name = getattr(h, 'issuing_entity', 'N/A')
+
+            data.append({
+                "id": getattr(h, 'id', None),
+                "date": str(getattr(h, 'date', '')).split('.')[0],
+                "reference_no": getattr(h, 'reference_no', ''),
+                "party": party_name,
+                "final_total": f"{float(getattr(h, 'final_total', 0)):,.2f}"
+            })
+        self.history_model.update_data(data)
 
     def handle_history_double_click(self, index):
-        row = index.row()
-        history = self.controller.get_movement_history(type=self.op_type)
-        if row < len(history):
-            m_id = history[row]['id']
+        if not index.isValid(): return
+        row_data = self.history_model._data[index.row()]
+        m_id = row_data.get("id")
+        if m_id:
             self.view_movement_pdf(m_id)
 
     def view_movement_pdf(self, movement_id):

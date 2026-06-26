@@ -12,6 +12,7 @@ class ReportService:
         self.db = db
 
     def generate_inventory_report(self):
+        from utils.translation_manager import tr, tr_manager
         try:
             settings = self.db.query(Settings).first() or Settings()
             filename = f"reports/inventory_{os.getpid()}.pdf"
@@ -21,16 +22,32 @@ class ReportService:
             elements = []
             styles = getSampleStyleSheet()
 
+            # RTL/LTR Logic for PDF
+            is_ar = tr_manager.current_language == 'ar'
+
+            def fmt(txt):
+                if not txt: return ""
+                if not is_ar: return str(txt)
+                import arabic_reshaper
+                from bidi.algorithm import get_display
+                reshaped = arabic_reshaper.reshape(str(txt))
+                return get_display(reshaped)
+
             # Header
-            elements.append(Paragraph(f"<b>{settings.company_name}</b>", styles['Title']))
-            elements.append(Paragraph("تقرير جرد المخازن", styles['Heading2']))
+            elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
+            elements.append(Paragraph(fmt(tr("inventory_report")), styles['Heading2']))
             elements.append(Spacer(1, 12))
 
             # Data
             items = self.db.query(Item).filter(Item.active == True).all()
-            data = [["كود الصنف", "اسم الصنف", "المخزون", "الوحدة"]]
+            headers = [tr("item_code"), tr("item_name"), tr("current_stock"), tr("unit")]
+            if is_ar: headers.reverse()
+
+            data = [[fmt(h) for h in headers]]
             for i in items:
-                data.append([i.code, i.name, str(i.current_stock), i.uom.name if i.uom else ""])
+                row = [i.code, i.name, str(i.current_stock), i.uom_id if hasattr(i, 'uom_id') else ""]
+                if is_ar: row.reverse()
+                data.append([fmt(cell) for cell in row])
 
             if len(data) > 1:
                 t = Table(data)
@@ -38,13 +55,12 @@ class ReportService:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'), # For Arabic we'd need a TrueType font like Cairo
                     ('GRID', (0, 0), (-1, -1), 1, colors.black)
                 ]))
                 elements.append(t)
             else:
-                elements.append(Paragraph("لا توجد أصناف مسجلة حالياً", styles['Normal']))
+                elements.append(Paragraph(fmt("No items found."), styles['Normal']))
 
             doc.build(elements)
             return filename
@@ -55,12 +71,13 @@ class ReportService:
 
     def generate_inventory_excel(self):
         import pandas as pd
+        from utils.translation_manager import tr
         items = self.db.query(Item).filter(Item.active == True).all()
         data = [{
-            'الكود': i.code,
-            'الاسم': i.name,
-            'الرصيد': i.current_stock,
-            'الفئة': i.category
+            tr('item_code'): i.code,
+            tr('item_name'): i.name,
+            tr('current_stock'): i.current_stock,
+            tr('category'): i.category
         } for i in items]
         df = pd.DataFrame(data)
         filename = f"reports/inventory_{os.getpid()}.xlsx"

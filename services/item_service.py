@@ -13,6 +13,8 @@ class ItemService:
         return self.item_repo.get_all(skip=skip, limit=limit)
 
     def create_item(self, item_data: dict) -> Item:
+        # Handle manual 'unit' text mapping to uom_id or just use unit column
+        # In our schema 'unit' is a TEXT column in items table.
         new_item = Item(**item_data)
         item = self.item_repo.create(new_item)
         app_logger.info(f"Item created: {item.code}")

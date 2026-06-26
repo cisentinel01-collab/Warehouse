@@ -2,10 +2,11 @@ from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex
 from typing import List, Any, Dict
 
 class EnterpriseTableModel(QAbstractTableModel):
-    def __init__(self, data: List[Dict[str, Any]], headers: List[str], parent=None):
+    def __init__(self, data: List[Dict[str, Any]], headers: List[str], translated_headers: List[str] = None, parent=None):
         super().__init__(parent)
         self._data = data
         self._headers = headers
+        self._translated_headers = translated_headers or headers
 
     def rowCount(self, parent=QModelIndex()) -> int:
         return len(self._data)
@@ -28,6 +29,8 @@ class EnterpriseTableModel(QAbstractTableModel):
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            if section < len(self._translated_headers):
+                return self._translated_headers[section]
             return self._headers[section]
         return None
 

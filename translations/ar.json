@@ -37,6 +37,8 @@
   "history": "السجل",
   "total_items": "إجمالي الأصناف",
   "expiring_soon": "أصناف قاربت الانتهاء",
+  "low_stock_alert": "يوجد أصناف تحت حد الطلب",
+  "expiring_soon_alert": "أصناف ستنتهي صلاحيتها قريباً",
   "total_value": "قيمة المخزون",
   "weekly_activity": "حركات الأسبوع (IN/OUT)",
   "activity_7d": "نشاط المخزن (آخر 7 أيام)",
@@ -52,5 +54,10 @@
   "receiver_person": "اسم الشخص المستلم",
   "receiver_person_placeholder": "اسم الشخص الذي تسلم العهدة",
   "issue_reason": "سبب الصرف",
-  "issue_reason_placeholder": "سبب خروج الأصناف من المخزن"
+  "issue_reason_placeholder": "سبب خروج الأصناف من المخزن",
+  "smart_alerts": "تنبيهات النظام الذكية",
+  "system_status_ok": "النظام يعمل بكفاءة عالية.",
+  "top_moving_items": "أكثر الأصناف حركة (30 يوم)",
+  "aging_items": "أصناف راكدة (90 يوم+)",
+  "refresh_history": "تحديث السجل"
 }

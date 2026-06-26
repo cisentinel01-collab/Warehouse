@@ -47,6 +47,7 @@ class Item(Base):
     barcode = Column(String(100), unique=True, index=True, nullable=True)
     name = Column(String(100), nullable=False, index=True)
     category = Column(String(50), index=True)
+    unit = Column(String(50)) # Manual text input
     uom_id = Column(Integer, ForeignKey("uoms.id"))
     location_id = Column(Integer, ForeignKey("locations.id"))
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))

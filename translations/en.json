@@ -37,6 +37,8 @@
   "history": "Transaction History",
   "total_items": "Total Inventory Items",
   "expiring_soon": "Expiring Batches",
+  "low_stock_alert": "Items below safety threshold",
+  "expiring_soon_alert": "Batches expiring soon",
   "total_value": "Portfolio Valuation",
   "weekly_activity": "Weekly Velocity (IN/OUT)",
   "activity_7d": "Operational Activity (Last 7 Days)",
@@ -52,5 +54,10 @@
   "receiver_person": "Recipient Person",
   "receiver_person_placeholder": "Name of person who took custody",
   "issue_reason": "Issuance Reason",
-  "issue_reason_placeholder": "Reason for items leaving warehouse"
+  "issue_reason_placeholder": "Reason for items leaving warehouse",
+  "smart_alerts": "Smart System Alerts",
+  "system_status_ok": "System operating at peak efficiency.",
+  "top_moving_items": "Top Moving Items (30D)",
+  "aging_items": "Stagnant Inventory (90D+)",
+  "refresh_history": "Refresh History"
 }
