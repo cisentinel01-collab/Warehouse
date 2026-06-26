@@ -9,39 +9,68 @@ class ImportService:
         pass
 
     def extract_from_excel(self, file_path: str) -> List[Dict]:
-        """Extracts items, quantities, and prices from Excel with heuristic mapping."""
+        """v3 Ultra-Smart Extraction using 40+ variants and Multi-Strategy detection."""
+        from thefuzz import fuzz, process
         try:
             df = pd.read_excel(file_path)
+            # Strategy 1: Data Cleaning (Drop leading empty rows/cols)
+            df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
             results = []
 
-            # Smart Mapping using substring matching
-            mapping = {
-                'name': ['اسم', 'صنف', 'item', 'description', 'details'],
-                'quantity': ['كمية', 'عدد', 'qty', 'quantity', 'amount'],
-                'price': ['سعر', 'سعر الوحدة', 'price', 'rate', 'cost'],
-                'code': ['كود', 'رقم الصنف', 'code', 'sku', 'part']
+            # Expanded detection library (40+ variants)
+            target_fields = {
+                'name': ['اسم الصنف', 'Item Name', 'Description', 'Details', 'الصنف', 'البيان', 'Product', 'Model', 'النوع', 'اسم المنتج', 'اسم المادة'],
+                'quantity': ['الكمية', 'Quantity', 'Qty', 'Amount', 'العدد', 'الوحدات', 'Vol', 'Stock', 'Count', 'كست', 'عدد الوحدات'],
+                'price': ['السعر', 'Unit Price', 'Price', 'Rate', 'سعر الوحدة', 'القيمة', 'Cost', 'Unit Cost', 'المبلغ', 'سعر المفرد'],
+                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة']
             }
 
-            # Find best column for each field
             col_map = {}
-            for field, keywords in mapping.items():
-                for col in df.columns:
-                    if any(key.lower() in str(col).lower() for key in keywords):
-                        col_map[field] = col
-                        break
+            # Strategy 2: Adaptive Header Location (Search first 10 rows for headers)
+            for i in range(min(10, len(df))):
+                row_vals = [str(x).lower() for x in df.iloc[i].values]
+                matches = 0
+                for f, variants in target_fields.items():
+                    if any(v.lower() in row_vals for v in variants): matches += 1
+                if matches >= 2:
+                    df.columns = df.iloc[i]
+                    df = df.iloc[i+1:]
+                    break
 
+            for field, choices in target_fields.items():
+                best_match = None
+                highest_score = 0
+                for col in df.columns:
+                    col_str = str(col).strip()
+                    if not col_str or col_str == 'nan': continue
+                    match, score = process.extractOne(col_str, choices, scorer=fuzz.token_set_ratio)
+                    if score > 75 and score > highest_score:
+                        highest_score = score
+                        best_match = col
+                if best_match:
+                    col_map[field] = best_match
+
+            # Strategy 3: Heuristic cleaning
             for _, row in df.iterrows():
-                if pd.isna(row.get(col_map.get('name'))): continue
+                name_val = row.get(col_map.get('name'))
+                if pd.isna(name_val) or str(name_val).strip() == "" or str(name_val).lower() == "total": continue
+
+                def clean_num(val):
+                    if pd.isna(val) or val == "": return 0.0
+                    try:
+                        s = str(val).replace(',', '').replace('$', '').replace('SAR', '').replace('EGP', '').strip()
+                        return float(s)
+                    except: return 0.0
 
                 results.append({
                     'code': str(row.get(col_map.get('code'), '')).split('.')[0] if not pd.isna(row.get(col_map.get('code'))) else '',
-                    'name': str(row.get(col_map.get('name'))),
-                    'quantity': float(row.get(col_map.get('quantity'), 0)) if not pd.isna(row.get(col_map.get('quantity'))) else 0,
-                    'price': float(row.get(col_map.get('price'), 0)) if not pd.isna(row.get(col_map.get('price'))) else 0
+                    'name': str(name_val).strip(),
+                    'quantity': clean_num(row.get(col_map.get('quantity'))),
+                    'price': clean_num(row.get(col_map.get('price')))
                 })
             return results
         except Exception as e:
-            print(f"Smart Excel Extraction Error: {e}")
+            print(f"v3 Ultra-Smart Excel Extraction Error: {e}")
             return []
 
     def extract_from_pdf(self, file_path: str) -> List[Dict]:

@@ -26,37 +26,38 @@ class LoginView(QWidget):
         container_layout.setContentsMargins(40, 40, 40, 40)
         container_layout.setSpacing(20)
 
+        from utils.translation_manager import tr
         # Logo
         logo_label = QLabel()
         logo_label.setPixmap(qta.icon("fa5s.warehouse", color="#d4af37").pixmap(80, 80))
         logo_label.setAlignment(Qt.AlignCenter)
         container_layout.addWidget(logo_label)
 
-        title = QLabel("AMS WMS")
-        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #d4af37;")
+        title = QLabel("AMERICAN MARINE SERVICES FREEZONE")
+        title.setStyleSheet("font-size: 22px; font-weight: bold; color: #d4af37;")
         title.setAlignment(Qt.AlignCenter)
         container_layout.addWidget(title)
 
-        subtitle = QLabel("نظام إدارة المستودعات المتطور")
+        subtitle = QLabel(tr("system_subtitle"))
         subtitle.setStyleSheet("font-size: 14px; color: #ecf0f1;")
         subtitle.setAlignment(Qt.AlignCenter)
         container_layout.addWidget(subtitle)
 
         # Inputs
         self.username = QLineEdit()
-        self.username.setPlaceholderText("اسم المستخدم")
+        self.username.setPlaceholderText(tr("username"))
         self.username.setMinimumHeight(50)
         container_layout.addWidget(self.username)
 
         self.password = QLineEdit()
-        self.password.setPlaceholderText("كلمة المرور")
+        self.password.setPlaceholderText(tr("password"))
         self.password.setEchoMode(QLineEdit.Password)
         self.password.setMinimumHeight(50)
         self.password.returnPressed.connect(self.handle_login)
         container_layout.addWidget(self.password)
 
         # Login Button
-        self.login_btn = QPushButton("تسجيل الدخول")
+        self.login_btn = QPushButton(tr("login"))
         self.login_btn.setObjectName("GoldButton")
         self.login_btn.setMinimumHeight(55)
         self.login_btn.clicked.connect(self.handle_login)

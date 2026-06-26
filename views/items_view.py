@@ -28,29 +28,30 @@ class ItemsView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
+        from utils.translation_manager import tr
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Toolbar
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("بحث عن صنف (اسم، كود، فئة)...")
+        self.search_input.setPlaceholderText(tr("search_items_placeholder"))
         self.search_input.textChanged.connect(self.handle_search)
         toolbar.addWidget(self.search_input)
 
         # Pagination Controls
         pagination_layout = QHBoxLayout()
         self.prev_btn = QPushButton()
-        self.prev_btn.setIcon(qta.icon("fa5s.chevron-right", color="#1a2a6c"))
+        self.prev_btn.setIcon(qta.icon("fa5s.chevron-right" if tr_manager.is_rtl else "fa5s.chevron-left", color="#1a2a6c"))
         self.prev_btn.setFixedSize(35, 35)
         self.prev_btn.clicked.connect(self.prev_page)
 
         self.next_btn = QPushButton()
-        self.next_btn.setIcon(qta.icon("fa5s.chevron-left", color="#1a2a6c"))
+        self.next_btn.setIcon(qta.icon("fa5s.chevron-left" if tr_manager.is_rtl else "fa5s.chevron-right", color="#1a2a6c"))
         self.next_btn.setFixedSize(35, 35)
         self.next_btn.clicked.connect(self.next_page)
 
-        self.page_label = QLabel(f"صفحة {self.current_page + 1}")
+        self.page_label = QLabel(f"{tr('page')} {self.current_page + 1}")
         self.page_label.setStyleSheet("font-weight: bold; margin: 0 10px;")
 
         pagination_layout.addWidget(self.next_btn)
@@ -58,14 +59,14 @@ class ItemsView(QWidget):
         pagination_layout.addWidget(self.prev_btn)
         toolbar.addLayout(pagination_layout)
 
-        add_btn = QPushButton("إضافة صنف جديد")
+        add_btn = QPushButton(tr("add_item"))
         add_btn.setObjectName("PrimaryButton")
         add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
         add_btn.setEnabled(AuthManager.has_permission('items', 'add'))
         add_btn.clicked.connect(self.show_add_dialog)
         toolbar.addWidget(add_btn)
 
-        import_btn = QPushButton("استيراد من Excel")
+        import_btn = QPushButton(tr("import_excel"))
         import_btn.setObjectName("SecondaryButton")
         import_btn.setEnabled(AuthManager.has_permission('items', 'add'))
         import_btn.clicked.connect(self.handle_import)

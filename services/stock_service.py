@@ -19,6 +19,17 @@ class StockService:
         """
         try:
             total_value = 0.0
+            # Ensure at least one bin exists to satisfy FK constraint
+            default_bin = self.db.query(Bin).first()
+            if not default_bin:
+                # Emergency recovery if seeding failed
+                wh = Warehouse(code="DEF", name="Default")
+                self.db.add(wh); self.db.flush()
+                zone = Zone(warehouse_id=wh.id, code="D1", name="Default")
+                self.db.add(zone); self.db.flush()
+                default_bin = Bin(zone_id=zone.id, code="B1", name="Default")
+                self.db.add(default_bin); self.db.flush()
+
             for it in items_list:
                 item = self.db.query(Item).filter(Item.id == it['item_id']).first()
                 if not item: continue
@@ -27,13 +38,20 @@ class StockService:
                 price = it['price']
                 total_value += (qty * price)
 
+                # Robust Bin/Lot Identification
+                bin_id = it.get('bin_id')
+                if not bin_id or bin_id == 0: bin_id = default_bin.id
+
                 if movement_data['type'] == 'IN':
+                    lot_num = it.get('lot_number', 'DEFAULT')
+                    if not lot_num: lot_num = 'DEFAULT'
+
                     lot = self.db.query(StockLot).filter(
                         StockLot.item_id == item.id,
-                        StockLot.lot_number == it.get('lot_number', 'DEFAULT')
+                        StockLot.lot_number == lot_num
                     ).first()
                     if not lot:
-                        lot = StockLot(item_id=item.id, lot_number=it.get('lot_number', 'DEFAULT'), expiry_date=it.get('expiry'))
+                        lot = StockLot(item_id=item.id, lot_number=lot_num, expiry_date=it.get('expiry'))
                         self.db.add(lot)
                         self.db.flush()
 
@@ -41,17 +59,17 @@ class StockService:
                     item.current_stock += qty
 
                     quant = self.db.query(StockQuant).filter(
-                        StockQuant.item_id == item.id, StockQuant.bin_id == it['bin_id'], StockQuant.lot_id == lot.id
+                        StockQuant.item_id == item.id, StockQuant.bin_id == bin_id, StockQuant.lot_id == lot.id
                     ).first()
                     if not quant:
-                        quant = StockQuant(item_id=item.id, bin_id=it['bin_id'], lot_id=lot.id, quantity=0)
+                        quant = StockQuant(item_id=item.id, bin_id=bin_id, lot_id=lot.id, quantity=0)
                         self.db.add(quant)
                     quant.quantity += qty
 
                 else: # OUT
                     item.current_stock -= qty
                     quant = self.db.query(StockQuant).filter(
-                        StockQuant.item_id == item.id, StockQuant.bin_id == it['bin_id']
+                        StockQuant.item_id == item.id, StockQuant.bin_id == bin_id
                     ).first()
                     if quant:
                         quant.quantity -= qty

@@ -30,7 +30,12 @@ class ItemService:
 
     def search_items(self, term: str, limit: int = 50, offset: int = 0) -> List[Item]:
         from sqlalchemy import or_
-        return self.db.query(Item).filter(
+        from sqlalchemy.orm import joinedload
+        return self.db.query(Item).options(
+            joinedload(Item.uom),
+            joinedload(Item.location),
+            joinedload(Item.supplier)
+        ).filter(
             or_(
                 Item.name.ilike(f"%{term}%"),
                 Item.code.ilike(f"%{term}%"),

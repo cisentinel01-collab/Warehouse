@@ -89,6 +89,16 @@ def main():
             sys.exit(1)
 
     # 7. Start with Login
+    # Force Language Check on Startup
+    from models.inventory import Settings
+    db = Session()
+    sys_settings = db.query(Settings).first()
+    if sys_settings and sys_settings.language:
+        from utils.translation_manager import tr_manager
+        tr_manager.set_language(sys_settings.language)
+        app.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+    db.close()
+
     login = LoginView()
     login.login_success.connect(on_login_success)
     login.show()

@@ -1,14 +1,26 @@
 from repositories.base_repository import BaseRepository
 from models.inventory import Item
 from models.user import User
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 class ItemRepository(BaseRepository[Item]):
     def __init__(self, db: Session):
         super().__init__(Item, db)
 
+    def get_all(self, skip: int = 0, limit: int = 100):
+        # Eager load relationships to prevent DetachedInstanceError in async UI
+        return self.db.query(Item).options(
+            joinedload(Item.uom),
+            joinedload(Item.location),
+            joinedload(Item.supplier)
+        ).offset(skip).limit(limit).all()
+
     def get_by_code(self, code: str) -> Item:
-        return self.db.query(Item).filter(Item.code == code).first()
+        return self.db.query(Item).options(
+            joinedload(Item.uom),
+            joinedload(Item.location),
+            joinedload(Item.supplier)
+        ).filter(Item.code == code).first()
 
     def get_by_barcode(self, barcode: str) -> Item:
         return self.db.query(Item).filter(Item.barcode == barcode).first()

@@ -364,23 +364,30 @@ class StockOperationsView(QWidget):
     def handle_item_selection_change(self):
         item_data = self.item_combo.currentData()
         if item_data:
-            # item_data could be a dict or a model object
-            item_id = item_data.id if hasattr(item_data, 'id') else item_data.get('id')
-            if not item_id: return
+            try:
+                # item_data could be a dict or a model object
+                item_id = getattr(item_data, 'id', None)
+                if item_id is None and isinstance(item_data, dict):
+                    item_id = item_data.get('id')
 
-            # Fetch last purchase price via raw query for speed
-            from database.db_manager import DBManager
-            db = DBManager()
-            query = """
-                SELECT mi.price FROM movement_items mi
-                JOIN movements m ON mi.movement_id = m.id
-                WHERE mi.item_id = :p1 AND m.type = 'IN'
-                ORDER BY m.date DESC LIMIT 1
-            """
-            res = db.execute_query(query, (item_id,))
-            if res:
-                self.price_input.setText(f"{res[0]['price']:.2f}")
-            else:
+                if not item_id: return
+
+                # Fetch last purchase price via raw query for speed
+                from database.db_manager import DBManager
+                db = DBManager()
+                query = """
+                    SELECT mi.price FROM movement_items mi
+                    JOIN movements m ON mi.movement_id = m.id
+                    WHERE mi.item_id = :p1 AND m.type = 'IN'
+                    ORDER BY m.date DESC LIMIT 1
+                """
+                res = db.execute_query(query, (item_id,))
+                if res:
+                    self.price_input.setText(f"{float(res[0]['price']):.2f}")
+                else:
+                    self.price_input.setText("0.00")
+            except Exception as e:
+                # Fallback to zero if query fails
                 self.price_input.setText("0.00")
 
     def load_items(self):
