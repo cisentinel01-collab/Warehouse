@@ -20,12 +20,19 @@ class DBManager:
         # 1. Convert Positional (%s) to Named (:p1) if params is a tuple/list
         if isinstance(params, (tuple, list)):
             count = 1
+            # Replace %s placeholders
             while '%s' in sql_converted:
                 placeholder = f"p{count}"
                 sql_converted = sql_converted.replace('%s', f":{placeholder}", 1)
                 if (count-1) < len(params):
                     param_dict[placeholder] = params[count-1]
                 count += 1
+
+            # If no %s was found but we have params and :p placeholders already exist
+            if not param_dict and len(params) > 0:
+                for i, val in enumerate(params):
+                    param_dict[f"p{i+1}"] = val
+
         elif isinstance(params, dict):
             # Already named parameters
             param_dict = params
