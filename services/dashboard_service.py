@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from models.inventory import Item, StockLot
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 class DashboardService:
     def __init__(self, db: Session):

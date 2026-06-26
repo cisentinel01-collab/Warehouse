@@ -77,7 +77,7 @@ class SettingsView(QWidget):
             self.db.commit()
 
             # Apply language change globally
-            from utils.translation_manager import tr_manager
+            from utils.translation_manager import tr_manager, lang_signal
             tr_manager.set_language(new_lang)
 
             from PySide6.QtWidgets import QApplication, QMessageBox
@@ -85,7 +85,10 @@ class SettingsView(QWidget):
             app = QApplication.instance()
             app.setLayoutDirection(Qt.RightToLeft if new_lang == 'ar' else Qt.LeftToRight)
 
-            QMessageBox.information(self, "نجاح / Success", "تم حفظ الإعدادات. قد تحتاج بعض العناصر لإعادة تشغيل بسيطة.\nSettings saved. Some elements may require a restart.")
+            # Emit signal to all views
+            lang_signal.changed.emit(new_lang)
+
+            QMessageBox.information(self, "نجاح / Success", "تم تغيير اللغة بنجاح وتطبيقها على كافة الواجهات.\nLanguage changed and applied to all views.")
         except Exception as e:
             self.db.rollback()
             from PySide6.QtWidgets import QMessageBox

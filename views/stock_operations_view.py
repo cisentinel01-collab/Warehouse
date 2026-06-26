@@ -25,6 +25,7 @@ class StockOperationsView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
+        from utils.translation_manager import tr
         self.main_layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
         self.main_layout.addWidget(self.tabs)
@@ -32,12 +33,12 @@ class StockOperationsView(QWidget):
         # Operation Tab
         self.op_tab = QWidget()
         self.setup_operation_tab()
-        self.tabs.addTab(self.op_tab, "تنفيذ عملية")
+        self.tabs.addTab(self.op_tab, tr("execute_operation"))
 
         # History Tab
         self.history_tab = QWidget()
         self.setup_history_tab()
-        self.tabs.addTab(self.history_tab, "السجل")
+        self.tabs.addTab(self.history_tab, tr("history"))
 
     def setup_operation_tab(self):
         main_layout = QVBoxLayout(self.op_tab)
@@ -64,37 +65,38 @@ class StockOperationsView(QWidget):
         self.ref_input.setText(self.controller.generate_invoice_no(self.op_type))
         info_layout.addRow("رقم الفاتورة/العملية:", self.ref_input)
 
+        from utils.translation_manager import tr
         if self.op_type == "IN":
             self.supplier_combo = QComboBox()
             self.supplier_combo.setMinimumHeight(45)
-            self.supplier_combo.setToolTip("اختر المورد الذي تم استلام الأصناف منه")
+            self.supplier_combo.setToolTip(tr("select_supplier_tooltip"))
             self.load_suppliers()
-            info_layout.addRow("المورد:", self.supplier_combo)
+            info_layout.addRow(tr("supplier") + ":", self.supplier_combo)
 
             self.receiver_input = QLineEdit()
             self.receiver_input.setMinimumHeight(45)
-            self.receiver_input.setPlaceholderText("أدخل اسم الموظف المستلم")
+            self.receiver_input.setPlaceholderText(tr("receiver_placeholder"))
             from utils.validator import Validator
             Validator.setup_strict_validation(self.receiver_input, "name")
-            info_layout.addRow("اسم المستلم:", self.receiver_input)
+            info_layout.addRow(tr("receiver_name") + ":", self.receiver_input)
         else:
             self.issuing_entity = QLineEdit()
             self.issuing_entity.setMinimumHeight(45)
-            self.issuing_entity.setPlaceholderText("مثال: قسم الصيانة، العميل...")
+            self.issuing_entity.setPlaceholderText(tr("issuing_entity_placeholder"))
             from utils.validator import Validator
             Validator.setup_strict_validation(self.issuing_entity, "name")
-            info_layout.addRow("الجهة المستلمة:", self.issuing_entity)
+            info_layout.addRow(tr("issuing_entity") + ":", self.issuing_entity)
 
             self.receiver_name = QLineEdit()
             self.receiver_name.setMinimumHeight(45)
-            self.receiver_name.setPlaceholderText("اسم الشخص الذي تسلم العهدة")
+            self.receiver_name.setPlaceholderText(tr("receiver_person_placeholder"))
             Validator.setup_strict_validation(self.receiver_name, "name")
-            info_layout.addRow("اسم الشخص المستلم:", self.receiver_name)
+            info_layout.addRow(tr("receiver_person") + ":", self.receiver_name)
 
             self.reason_input = QLineEdit()
             self.reason_input.setMinimumHeight(45)
-            self.reason_input.setPlaceholderText("سبب خروج الأصناف من المخزن")
-            info_layout.addRow("سبب الصرف:", self.reason_input)
+            self.reason_input.setPlaceholderText(tr("issue_reason_placeholder"))
+            info_layout.addRow(tr("issue_reason") + ":", self.reason_input)
 
         layout.addWidget(info_group)
 

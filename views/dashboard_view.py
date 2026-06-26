@@ -1,6 +1,9 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-                             QPushButton, QLabel, QGridLayout, QMessageBox)
+                             QPushButton, QLabel, QGridLayout, QMessageBox,
+                             QFrame, QScrollArea)
 from PySide6.QtCore import Qt
+from PySide6.QtCharts import QChart, QChartView, QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QPieSeries, QPieSlice
+from PySide6.QtGui import QPainter, QLinearGradient, QGradient, QColor
 import qtawesome as qta
 
 class DashboardView(QWidget):
@@ -10,10 +13,6 @@ class DashboardView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        from PySide6.QtCharts import QChart, QChartView, QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QPieSeries
-        from PySide6.QtGui import QPainter, QLinearGradient, QGradient, QColor
-        from PySide6.QtWidgets import QFrame, QScrollArea
-
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -29,22 +28,36 @@ class DashboardView(QWidget):
         self.main_layout.addWidget(scroll)
 
         # Header with Logo/Title
-        header_h = QHBoxLayout()
-        header = QLabel("AMERICAN MARINE SERVICES FREEZONE - ENTERPRISE CONTROL")
-        header.setStyleSheet("font-size: 32px; font-weight: 800; color: #d4af37; letter-spacing: 1px;")
-        header_h.addWidget(header)
+        header_frame = QFrame()
+        header_frame.setStyleSheet("background-color: #111; border-bottom: 2px solid #d4af37; padding: 10px;")
+        header_h = QHBoxLayout(header_frame)
+
+        logo_icon = QLabel()
+        logo_icon.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(45, 45))
+        header_h.addWidget(logo_icon)
+
+        header_title = QLabel("AMERICAN MARINE SERVICES FREEZONE")
+        header_title.setStyleSheet("font-size: 28px; font-weight: 900; color: #d4af37; letter-spacing: 2px;")
+        header_h.addWidget(header_title)
+
         header_h.addStretch()
-        layout.addLayout(header_h)
+
+        control_label = QLabel("ENTERPRISE COMMAND CENTER v2.0")
+        control_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #7f8c8d; border: 1px solid #333; padding: 5px 15px; border-radius: 15px;")
+        header_h.addWidget(control_label)
+
+        layout.addWidget(header_frame)
 
         # Top Stats Cards
         stats_h_layout = QHBoxLayout()
         stats_h_layout.setSpacing(20)
 
-        self.total_items_card = self.create_stat_card("إجمالي الأصناف", "0", "fa5s.boxes", "#1a2a6c")
-        self.low_stock_card = self.create_stat_card("النواقص", "0", "fa5s.exclamation-triangle", "#e74c3c")
-        self.expiring_card = self.create_stat_card("أصناف قاربت الانتهاء", "0", "fa5s.calendar-times", "#f39c12")
-        self.total_value_card = self.create_stat_card("قيمة المخزون", "0.00", "fa5s.money-bill-wave", "#27ae60")
-        self.weekly_activity_card = self.create_stat_card("حركات الأسبوع (IN/OUT)", "0/0", "fa5s.exchange-alt", "#2980b9")
+        from utils.translation_manager import tr
+        self.total_items_card = self.create_stat_card(tr("total_items"), "0", "fa5s.boxes", "#1a2a6c")
+        self.low_stock_card = self.create_stat_card(tr("low_stock"), "0", "fa5s.exclamation-triangle", "#e74c3c")
+        self.expiring_card = self.create_stat_card(tr("expiring_soon"), "0", "fa5s.calendar-times", "#f39c12")
+        self.total_value_card = self.create_stat_card(tr("total_value"), "0.00", "fa5s.money-bill-wave", "#27ae60")
+        self.weekly_activity_card = self.create_stat_card(tr("weekly_activity"), "0/0", "fa5s.exchange-alt", "#2980b9")
 
         stats_h_layout.addWidget(self.total_items_card)
         stats_h_layout.addWidget(self.low_stock_card)
@@ -59,7 +72,7 @@ class DashboardView(QWidget):
 
         # Bar Chart for 7-day trend
         self.activity_chart = QChart()
-        self.activity_chart.setTitle("نشاط المخزن (آخر 7 أيام)")
+        self.activity_chart.setTitle(tr("activity_7d"))
         self.activity_chart.setAnimationOptions(QChart.SeriesAnimations)
 
         self.chart_view = QChartView(self.activity_chart)
@@ -69,7 +82,7 @@ class DashboardView(QWidget):
 
         # Pie Chart for Categories
         self.pie_chart = QChart()
-        self.pie_chart.setTitle("توزيع الأصناف حسب الفئات")
+        self.pie_chart.setTitle(tr("category_distribution"))
         self.pie_chart_view = QChartView(self.pie_chart)
         self.pie_chart_view.setRenderHint(QPainter.Antialiasing)
         self.pie_chart_view.setMinimumHeight(350)
@@ -151,7 +164,6 @@ class DashboardView(QWidget):
         return card
 
     def refresh(self):
-        from PySide6.QtCharts import QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QPieSeries, QPieSlice
         try:
             stats = self.service.get_stats()
 
@@ -160,28 +172,43 @@ class DashboardView(QWidget):
             self.low_stock_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('low_stock', 0)))
             self.expiring_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('expiring_soon', 0)))
             self.total_value_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_value', 0):,.2f}")
-            self.weekly_activity_card.findChild(QLabel, "ValueLabel").setText(
-                f"{stats.get('inbound_7d', 0)} / {stats.get('outbound_7d', 0)}"
-            )
 
-            # Update Bar Chart (Movement Trend)
+            # Calculate weekly summary
+            trends = stats.get('trends', [])
+            total_in = sum(t['in'] for t in trends)
+            total_out = sum(t['out'] for t in trends)
+            self.weekly_activity_card.findChild(QLabel, "ValueLabel").setText(f"{int(total_in)} / {int(total_out)}")
+
+            # Update Bar Chart (Detailed Daily Trend)
+            from utils.translation_manager import tr
             self.activity_chart.removeAllSeries()
-            set_in = QBarSet("وارد")
-            set_out = QBarSet("صادر")
-            set_in.append(stats.get('inbound_7d', 0))
-            set_out.append(stats.get('outbound_7d', 0))
+            set_in = QBarSet(tr("inbound"))
+            set_out = QBarSet(tr("outbound"))
+
+            categories = []
+            for t in trends:
+                set_in.append(t['in'])
+                set_out.append(t['out'])
+                categories.append(t['date'])
 
             series = QBarSeries()
             series.append(set_in)
             series.append(set_out)
             self.activity_chart.addSeries(series)
 
+            # Re-create axes for the chart
+            self.activity_chart.createDefaultAxes()
+            axis_x = QBarCategoryAxis()
+            axis_x.append(categories)
+            self.activity_chart.setAxisX(axis_x, series)
+
             # Update Pie Chart (Categories)
             self.pie_chart.removeAllSeries()
             pie_series = QPieSeries()
             cat_dist = stats.get('category_dist', {})
             for cat, count in cat_dist.items():
-                pie_series.append(f"{cat or 'غير مصنف'}", count)
+                slice = pie_series.append(f"{cat}", count)
+                slice.setLabelVisible(True)
 
             if pie_series.count() > 0:
                 self.pie_chart.addSeries(pie_series)

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models.inventory import Item, StockLot, StockQuant, Bin
+from models.inventory import Item, StockLot, StockQuant, Bin, Warehouse, Zone
 from models.accounting import Account, Journal
 from services.accounting_service import AccountingService
 from repositories.movement_repo import MovementRepository

@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Dict
+from PySide6.QtCore import QObject, Signal
 from config.settings import settings
 
 class TranslationManager:
@@ -37,6 +38,11 @@ class TranslationManager:
     def is_rtl(self):
         return self._current_lang == 'ar'
 
+class LanguageSignal(QObject):
+    changed = Signal(str)
+
 tr_manager = TranslationManager()
+lang_signal = LanguageSignal()
+
 def tr(key: str) -> str:
     return tr_manager.get_text(key)

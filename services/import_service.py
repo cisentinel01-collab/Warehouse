@@ -9,57 +9,59 @@ class ImportService:
         pass
 
     def extract_from_excel(self, file_path: str) -> List[Dict]:
-        """v3 Ultra-Smart Extraction using 40+ variants and Multi-Strategy detection."""
+        """v4 Enterprise-Grade Extraction with structural analysis."""
         from thefuzz import fuzz, process
         try:
-            df = pd.read_excel(file_path)
-            # Strategy 1: Data Cleaning (Drop leading empty rows/cols)
-            df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
-            results = []
+            df = pd.read_excel(file_path, header=None)
+            # 1. Structural Analysis: Find the main table body
+            # We look for the row with the most contentful cells
+            max_cols = 0
+            header_row_idx = 0
+            for i in range(min(20, len(df))):
+                non_empty = df.iloc[i].count()
+                if non_empty > max_cols:
+                    max_cols = non_empty
+                    header_row_idx = i
 
-            # Expanded detection library (40+ variants)
+            df.columns = df.iloc[header_row_idx]
+            df = df.iloc[header_row_idx+1:]
+            df = df.dropna(how='all', axis=0)
+
+            # 2. Hyper-Fuzzy Header Detection (40+ variants)
             target_fields = {
-                'name': ['اسم الصنف', 'Item Name', 'Description', 'Details', 'الصنف', 'البيان', 'Product', 'Model', 'النوع', 'اسم المنتج', 'اسم المادة'],
-                'quantity': ['الكمية', 'Quantity', 'Qty', 'Amount', 'العدد', 'الوحدات', 'Vol', 'Stock', 'Count', 'كست', 'عدد الوحدات'],
-                'price': ['السعر', 'Unit Price', 'Price', 'Rate', 'سعر الوحدة', 'القيمة', 'Cost', 'Unit Cost', 'المبلغ', 'سعر المفرد'],
-                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة']
+                'name': ['اسم الصنف', 'Item Name', 'Description', 'Details', 'الصنف', 'البيان', 'Product', 'Model', 'النوع', 'اسم المنتج', 'اسم المادة', 'Nomenclature', 'Service', 'Task'],
+                'quantity': ['الكمية', 'Quantity', 'Qty', 'Amount', 'العدد', 'الوحدات', 'Vol', 'Stock', 'Count', 'كست', 'عدد الوحدات', 'QNT', 'Weight', 'Size'],
+                'price': ['السعر', 'Unit Price', 'Price', 'Rate', 'سعر الوحدة', 'القيمة', 'Cost', 'Unit Cost', 'المبلغ', 'سعر المفرد', 'Price Each', 'Total Price', 'Net Price'],
+                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة', 'ID', 'Part #', 'Index']
             }
 
             col_map = {}
-            # Strategy 2: Adaptive Header Location (Search first 10 rows for headers)
-            for i in range(min(10, len(df))):
-                row_vals = [str(x).lower() for x in df.iloc[i].values]
-                matches = 0
-                for f, variants in target_fields.items():
-                    if any(v.lower() in row_vals for v in variants): matches += 1
-                if matches >= 2:
-                    df.columns = df.iloc[i]
-                    df = df.iloc[i+1:]
-                    break
-
             for field, choices in target_fields.items():
                 best_match = None
                 highest_score = 0
                 for col in df.columns:
                     col_str = str(col).strip()
-                    if not col_str or col_str == 'nan': continue
+                    if not col_str or col_str.lower() == 'nan': continue
                     match, score = process.extractOne(col_str, choices, scorer=fuzz.token_set_ratio)
-                    if score > 75 and score > highest_score:
+                    if score > 70 and score > highest_score:
                         highest_score = score
                         best_match = col
                 if best_match:
                     col_map[field] = best_match
 
-            # Strategy 3: Heuristic cleaning
+            # 3. Intelligent Data Cleaning & Mapping
+            results = []
             for _, row in df.iterrows():
                 name_val = row.get(col_map.get('name'))
-                if pd.isna(name_val) or str(name_val).strip() == "" or str(name_val).lower() == "total": continue
+                if pd.isna(name_val) or str(name_val).strip() == "": continue
+                if any(x in str(name_val).lower() for x in ['total', 'sum', 'إجمالي', 'مجموع']): continue
 
                 def clean_num(val):
                     if pd.isna(val) or val == "": return 0.0
                     try:
-                        s = str(val).replace(',', '').replace('$', '').replace('SAR', '').replace('EGP', '').strip()
-                        return float(s)
+                        # Handle values like "1,200.50 SAR"
+                        s = re.sub(r'[^\d.]', '', str(val))
+                        return float(s) if s else 0.0
                     except: return 0.0
 
                 results.append({
@@ -70,7 +72,7 @@ class ImportService:
                 })
             return results
         except Exception as e:
-            print(f"v3 Ultra-Smart Excel Extraction Error: {e}")
+            print(f"v4 Hyper-Smart Excel Extraction Error: {e}")
             return []
 
     def extract_from_pdf(self, file_path: str) -> List[Dict]:

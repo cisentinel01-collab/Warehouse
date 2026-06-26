@@ -16,3 +16,5 @@ SQLAlchemy==2.0.51
 qtawesome==1.4.2
 pytest==9.1.1
 pytest-qt==4.5.0
+thefuzz
+python-Levenshtein

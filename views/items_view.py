@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, Signal, QTimer, QThreadPool
 import qtawesome as qta
 import os
 from utils.auth import AuthManager
-from utils.translation_manager import tr
+from utils.translation_manager import tr, tr_manager
 from views_components.enterprise_table_model import EnterpriseTableModel
 from workers.worker import Worker
 
@@ -97,6 +97,7 @@ class ItemsView(QWidget):
         self.threadpool.start(worker)
 
     def on_data_loaded(self, items):
+        from utils.translation_manager import tr
         data = []
         for i in items:
             data.append({

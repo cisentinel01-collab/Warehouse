@@ -13,28 +13,32 @@ class DBManager:
         return cls._instance
 
     def execute_query(self, query, params=(), commit=False):
-        """Compatibility method for legacy raw SQL queries using SQLAlchemy engine."""
+        """Enhanced Compatibility method for legacy raw SQL queries."""
+        import re
         sql_converted = query
         param_dict = {}
 
-        # 1. Convert Positional (%s) to Named (:p1) if params is a tuple/list
+        # 1. Robust Conversion of Positional (%s) to Named (:p1)
         if isinstance(params, (tuple, list)):
-            count = 1
-            # Replace %s placeholders
-            while '%s' in sql_converted:
+            def replace_placeholder(match):
+                nonlocal count
                 placeholder = f"p{count}"
-                sql_converted = sql_converted.replace('%s', f":{placeholder}", 1)
                 if (count-1) < len(params):
                     param_dict[placeholder] = params[count-1]
                 count += 1
+                return f":{placeholder}"
 
-            # If no %s was found but we have params and :p placeholders already exist
+            count = 1
+            # Regex to find %s that are not inside quotes or escaped
+            # This is a simplified version but better than str.replace
+            sql_converted = re.sub(r'(?<!%)%s', replace_placeholder, query)
+
+            # If no %s was found but we have params (manual named params used)
             if not param_dict and len(params) > 0:
                 for i, val in enumerate(params):
                     param_dict[f"p{i+1}"] = val
 
         elif isinstance(params, dict):
-            # Already named parameters
             param_dict = params
 
         try:

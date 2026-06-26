@@ -46,6 +46,9 @@ class MainWindow(QMainWindow):
             self.setup_ui()
             self.init_views()
 
+            from utils.translation_manager import lang_signal
+            lang_signal.changed.connect(self.on_language_changed)
+
             self.load_dashboard()
             self.check_expiry_alarm()
         except Exception as e:
@@ -96,12 +99,11 @@ class MainWindow(QMainWindow):
         sidebar_layout.setSpacing(5)
 
         # Logo/Brand
+        from utils.translation_manager import tr
         brand_label = QLabel("AMS WMS")
         brand_label.setStyleSheet("color: #d4af37; font-size: 24px; font-weight: bold; margin-bottom: 20px; padding: 10px;")
         brand_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(brand_label)
-
-        from utils.translation_manager import tr
         self.nav_buttons = {}
         self.create_nav_button("dashboard", tr("dashboard"), "fa5s.chart-line")
         self.create_nav_button("items", tr("items"), "fa5s.boxes")
@@ -133,12 +135,13 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("Header")
         header_layout = QHBoxLayout(header)
-        self.page_title = QLabel("الرئيسية")
+        self.page_title = QLabel(tr("dashboard"))
         header_layout.addWidget(self.page_title)
         header_layout.addStretch()
 
         user = AuthManager.get_current_user()
-        user_info = QLabel(f"مرحباً، {user['full_name'] if user else ''}")
+        welcome_txt = "مرحباً" if tr_manager.current_language == 'ar' else "Welcome"
+        user_info = QLabel(f"{welcome_txt}، {user['full_name'] if user else ''}")
         header_layout.addWidget(user_info)
 
         self.content_layout.addWidget(header)
@@ -198,6 +201,30 @@ class MainWindow(QMainWindow):
         except Exception as e:
             app_logger.error(f"Navigation error to {page_id}: {e}")
             QMessageBox.critical(self, "خطأ في التنقل", f"فشل الانتقال إلى هذه الصفحة: {str(e)}")
+
+    def on_language_changed(self, lang):
+        # Full UI Refresh
+        self.setup_ui()
+        # Re-attach views to the new stack
+        self.stack.addWidget(self.dashboard_view)
+        self.stack.addWidget(self.items_view)
+        self.stack.addWidget(self.suppliers_view)
+        self.stack.addWidget(self.stock_in_view)
+        self.stack.addWidget(self.stock_out_view)
+        self.stack.addWidget(self.reports_view)
+        self.stack.addWidget(self.users_view)
+        self.stack.addWidget(self.devices_view)
+        self.stack.addWidget(self.settings_view)
+        self.stack.addWidget(self.locations_view)
+        self.stack.addWidget(self.purchase_view)
+
+        # Reload current page text
+        current_id = None
+        for b_id, btn in self.nav_buttons.items():
+            if btn.isChecked(): current_id = b_id; break
+
+        if current_id:
+            self.switch_page(current_id)
 
     def load_dashboard(self):
         if "dashboard" in self.nav_buttons:
