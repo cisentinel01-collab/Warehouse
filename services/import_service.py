@@ -152,25 +152,54 @@ class ImportService:
         return heuristic_results
 
     def extract_from_image(self, file_path: str) -> List[Dict]:
-        """OCR-based extraction for scans and images using PaddleOCR with Layout Analysis."""
+        """v8 AI OCR with Grid Grouping logic using PaddleOCR."""
         try:
             from paddleocr import PaddleOCR
-            # Initialize with Arabic/English support
-            ocr = PaddleOCR(use_angle_cls=True, lang='ar')
+            # lang='ar' handles both English and Arabic characters
+            ocr = PaddleOCR(use_angle_cls=True, lang='ar', show_log=False)
             result = ocr.ocr(file_path, cls=True)
 
-            # Simplified heuristic for OCR results
-            extracted_text = []
-            for idx in range(len(result)):
-                res = result[idx]
-                for line in res:
-                    extracted_text.append(line[1][0])
+            if not result or not result[0]: return []
 
-            # In a real "Beast-Mode" scenario, we'd use a LLM or structural analyzer here.
-            # For now, we return a list of discovered strings for the user to map.
-            return [{"name": txt, "quantity": 1, "price": 0.0, "code": ""} for txt in extracted_text if len(txt) > 5]
+            # 1. Structural Intelligence: Group boxes by Y-coordinate (rows)
+            lines = result[0]
+            rows = {}
+            for box in lines:
+                y_center = (box[0][0][1] + box[0][2][1]) / 2
+                # Round to nearest 15 pixels to group cells into rows
+                row_key = round(y_center / 15) * 15
+                if row_key not in rows: rows[row_key] = []
+                rows[row_key].append(box)
+
+            structured_rows = []
+            for r_key in sorted(rows.keys()):
+                # Sort cells in row by X-coordinate
+                cells = sorted(rows[r_key], key=lambda x: x[0][0][0])
+                texts = [c[1][0] for c in cells]
+
+                # Filter out rows that don't look like data (single cell or too short)
+                if len(texts) < 2: continue
+
+                # 2. Heuristic Column Discovery in the row
+                row_data = {'name': '', 'quantity': 1, 'price': 0.0, 'code': ''}
+                found_num = False
+                for t in texts:
+                    t_clean = re.sub(r'[^\d.]', '', t)
+                    if t_clean and t_clean.replace('.','').isdigit() and len(t_clean) < 10:
+                        val = float(t_clean)
+                        if not found_num:
+                            row_data['quantity'] = val; found_num = True
+                        else:
+                            row_data['price'] = val
+                    elif len(t) > 3 and not row_data['name']:
+                        row_data['name'] = t
+
+                if row_data['name']:
+                    structured_rows.append(row_data)
+
+            return structured_rows
         except Exception as e:
-            print(f"OCR Extraction Error: {e}")
+            print(f"v8 AI OCR Extraction Error: {e}")
             return []
 
     def _process_table_rows(self, table):

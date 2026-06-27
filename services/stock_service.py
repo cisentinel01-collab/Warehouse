@@ -189,7 +189,10 @@ class StockService:
 
         if header_data:
             h_table = Table(header_data, colWidths=[350, 150] if not is_ar else [150, 350])
-            h_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+            h_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LINEBELOW', (0,0), (-1,-1), 2, colors.HexColor('#d4af37'))
+            ]))
             elements.append(h_table)
 
         elements.append(Spacer(1, 25))
@@ -202,6 +205,15 @@ class StockService:
         elements.append(Paragraph(fmt(f"{party_label}: {party_name}"), styles['Normal']))
 
         elements.append(Spacer(1, 20))
+
+        # Pro Max Summary Bar
+        m_type_txt = tr("inbound") if m.type == 'IN' else tr("outbound")
+        top_sum = [[fmt(f"{tr('type')}: {m_type_txt}"), fmt(f"{tr('receiver_name')}: {m.received_by or m.receiver_name or '-'}")]]
+        if is_ar: top_sum[0].reverse()
+        ts_table = Table(top_sum, colWidths=[250, 250])
+        ts_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f2f3f4')), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+        elements.append(ts_table)
+        elements.append(Spacer(1, 15))
 
         # Premium Line Items Table
         m_items = self.db.query(MovementItem).filter(MovementItem.movement_id == movement_id).all()

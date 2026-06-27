@@ -11,8 +11,8 @@ class DashboardService:
         from models.inventory import Movement
 
         # 1. Base Stats
-        total_items = self.db.query(Item).count()
-        low_stock = self.db.query(Item).filter(Item.current_stock <= Item.min_stock).count()
+        total_items = self.db.query(Item).filter(Item.active == True).count()
+        low_stock = self.db.query(Item).filter(Item.active == True, Item.current_stock <= Item.min_stock).count()
 
         future_date = datetime.now() + timedelta(days=180)
         expiring_soon = self.db.query(StockLot).filter(
@@ -22,14 +22,16 @@ class DashboardService:
         ).count()
 
         # 2. Advanced KPIs
-        # Total Valuation using subquery for speed
+        # Total Valuation based on current stock and latest purchase price
         total_value = self.db.execute(text("""
             SELECT SUM(i.current_stock * COALESCE(
                 (SELECT price FROM movement_items mi
                  JOIN movements m ON mi.movement_id = m.id
                  WHERE mi.item_id = i.id AND m.type = 'IN'
-                 ORDER BY m.date DESC LIMIT 1), 0))
-            FROM items i WHERE i.current_stock > 0
+                 ORDER BY m.date DESC LIMIT 1),
+                (SELECT price FROM movement_items mi WHERE mi.item_id = i.id ORDER BY id DESC LIMIT 1),
+                0))
+            FROM items i WHERE i.active = true AND i.current_stock > 0
         """)).scalar() or 0.0
 
         # Movement Trends (Last 7 Days - Daily breakdown)

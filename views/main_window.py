@@ -34,9 +34,12 @@ from views.expiry_alarm_dialog import ExpiryAlarmDialog
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("نظام إدارة المخازن - American Marine Services")
-        self.resize(1200, 800)
-        self.setLayoutDirection(Qt.RightToLeft)
+        from utils.translation_manager import tr_manager
+        self.setWindowTitle("American Marine Services - ERP")
+        self.resize(1280, 800)
+
+        # Immediate Direction Sync
+        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
 
         try:
             self.db = Session()
@@ -294,7 +297,7 @@ class MainWindow(QMainWindow):
         def on_relogin(user_data):
             QApplication.instance().setQuitOnLastWindowClosed(True)
             self.new_main = MainWindow()
-            self.new_main.show()
+            self.new_main.showMaximized()
 
         self.login_window.login_success.connect(on_relogin)
         self.login_window.show()

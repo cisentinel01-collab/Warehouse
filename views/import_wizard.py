@@ -1,0 +1,188 @@
+from PySide6.QtWidgets import (QWizard, QWizardPage, QVBoxLayout, QHBoxLayout,
+                             QLabel, QPushButton, QFileDialog, QTableWidget,
+                             QTableWidgetItem, QComboBox, QMessageBox, QFrame,
+                             QProgressBar, QScrollArea, QWidget)
+from PySide6.QtCore import Qt, Signal
+import pandas as pd
+from utils.translation_manager import tr, tr_manager
+
+class EnterpriseImportWizard(QWizard):
+    def __init__(self, service, parent=None, is_opening_balance=False):
+        super().__init__(parent)
+        self.service = service
+        self.is_opening_balance = is_opening_balance
+        self.setWindowTitle(tr("import_wizard") + (" - " + tr("opening_balance") if is_opening_balance else ""))
+        self.resize(1100, 800)
+        self.setWizardStyle(QWizard.ModernStyle)
+        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+
+        self.import_data = None
+        self.mapping = {}
+
+        # Steps
+        self.addPage(UploadPage(self))
+        self.addPage(MappingPage(self))
+        self.addPage(ValidationPage(self))
+        self.addPage(SuccessPage(self))
+
+class UploadPage(QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.setTitle(tr("step_upload"))
+        layout = QVBoxLayout(self)
+
+        self.btn = QPushButton(tr("select_excel_file"))
+        self.btn.clicked.connect(self.load_file)
+        layout.addWidget(self.btn)
+
+        self.file_label = QLabel(tr("no_file_selected"))
+        layout.addWidget(self.file_label)
+
+        self.preview = QTableWidget()
+        layout.addWidget(self.preview)
+
+    def load_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Excel", "", "Excel Files (*.xlsx *.xls)")
+        if path:
+            self.wizard.import_data = pd.read_excel(path)
+            self.file_label.setText(path)
+            self.show_preview()
+            self.completeChanged.emit()
+
+    def show_preview(self):
+        df = self.wizard.import_data.head(10)
+        self.preview.setRowCount(df.shape[0])
+        self.preview.setColumnCount(df.shape[1])
+        self.preview.setHorizontalHeaderLabels(df.columns)
+        for i in range(df.shape[0]):
+            for j in range(df.shape[1]):
+                self.preview.setItem(i, j, QTableWidgetItem(str(df.iloc[i, j])))
+
+    def isComplete(self):
+        return self.wizard.import_data is not None
+
+class MappingPage(QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.setTitle(tr("step_mapping"))
+        self.layout = QVBoxLayout(self)
+
+    def initializePage(self):
+        # Clear layout
+        while self.layout.count():
+            item = self.layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+
+        self.layout.addWidget(QLabel(tr("map_columns_info")))
+
+        # Enterprise Mapping Grid
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        container = QWidget()
+        grid = QVBoxLayout(container)
+
+        target_fields = ['code', 'name', 'category', 'unit', 'min_stock', 'current_stock']
+        self.combos = {}
+
+        for field in target_fields:
+            h = QHBoxLayout()
+            h.addWidget(QLabel(tr(f"field_{field}") + ":"))
+            combo = QComboBox()
+            combo.addItem("-- Select --", None)
+            cols = self.wizard.import_data.columns.tolist()
+            combo.addItems(cols)
+
+            # Smart Auto-Detection
+            from thefuzz import process
+            match, score = process.extractOne(field, cols)
+            if score > 70:
+                combo.setCurrentText(match)
+
+            self.combos[field] = combo
+            h.addWidget(combo)
+            grid.addLayout(h)
+
+        scroll.setWidget(container)
+        self.layout.addWidget(scroll)
+
+    def validatePage(self):
+        self.wizard.mapping = {f: c.currentText() for f, c in self.combos.items() if c.currentData() is not None or c.currentIndex() > 0}
+        if 'code' not in self.wizard.mapping or 'name' not in self.wizard.mapping:
+            QMessageBox.warning(self, tr("warning"), tr("mapping_required_fields"))
+            return False
+        return True
+
+class ValidationPage(QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.setTitle(tr("step_validation"))
+        self.layout = QVBoxLayout(self)
+        self.table = QTableWidget()
+        self.layout.addWidget(self.table)
+        self.errors = []
+
+    def initializePage(self):
+        df = self.wizard.import_data
+        mapping = self.wizard.mapping
+        self.table.setRowCount(len(df))
+        self.table.setColumnCount(len(mapping) + 1)
+        self.table.setHorizontalHeaderLabels(list(mapping.keys()) + ["Status"])
+
+        self.errors = []
+        for idx, row in df.iterrows():
+            status = "✅ OK"
+            for col_idx, (field, excel_col) in enumerate(mapping.items()):
+                val = row[excel_col]
+                item = QTableWidgetItem(str(val))
+
+                # Validation Logic
+                if field == 'code' and pd.isna(val):
+                    status = "❌ Missing Code"; self.errors.append(idx)
+                    item.setBackground(Qt.red)
+                if field == 'current_stock' and pd.isna(val):
+                    val = 0.0
+
+                self.table.setItem(idx, col_idx, item)
+            self.table.setItem(idx, len(mapping), QTableWidgetItem(status))
+
+    def validatePage(self):
+        if self.errors:
+            return QMessageBox.question(self, tr("confirm"), tr("proceed_with_errors")) == QMessageBox.Yes
+        return True
+
+class SuccessPage(QWizardPage):
+    def __init__(self, wizard):
+        super().__init__()
+        self.wizard = wizard
+        self.setTitle(tr("step_import"))
+        layout = QVBoxLayout(self)
+        self.lbl = QLabel(tr("ready_to_import"))
+        layout.addWidget(self.lbl)
+        self.pbar = QProgressBar()
+        layout.addWidget(self.pbar)
+
+    def initializePage(self):
+        # Final Execution
+        df = self.wizard.import_data
+        mapping = self.wizard.mapping
+        total = len(df)
+        self.pbar.setMaximum(total)
+
+        count = 0
+        for _, row in df.iterrows():
+            data = {}
+            for field, excel_col in mapping.items():
+                data[field] = row[excel_col]
+
+            # Use service to create item
+            try:
+                self.wizard.service.create_item(data)
+                count += 1
+                self.pbar.setValue(count)
+            except:
+                pass
+
+        self.lbl.setText(f"Successfully Imported {count} items!")

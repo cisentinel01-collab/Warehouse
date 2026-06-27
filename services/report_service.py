@@ -49,13 +49,30 @@ class ReportService:
 
             if header_data:
                 h_table = Table(header_data, colWidths=[350, 150] if not is_ar else [150, 350])
-                h_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+                h_table.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('LINEBELOW', (0,0), (-1,-1), 1, colors.HexColor('#d4af37'))
+                ]))
                 elements.append(h_table)
 
             elements.append(Spacer(1, 25))
             elements.append(Paragraph(fmt(tr("inventory_report").upper()), styles['Heading2']))
             elements.append(Paragraph(fmt(f"{tr('date')}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"), styles['Normal']))
             elements.append(Spacer(1, 20))
+
+            # Summary Analytics Top Bar (Pro Max)
+            total_items = len(items)
+            total_qty = sum(i.current_stock for i in items)
+            summary_top = [[fmt(f"{tr('total_items')}: {total_items}"), fmt(f"Total On-Hand: {total_qty}")]]
+            if is_ar: summary_top[0].reverse()
+            st_table = Table(summary_top, colWidths=[250, 250])
+            st_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#ecf0f1')),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('FONTSIZE', (0,0), (-1,-1), 10)
+            ]))
+            elements.append(st_table)
+            elements.append(Spacer(1, 15))
 
             # Pro-Level Data Table
             items = self.db.query(Item).filter(Item.active == True).all()

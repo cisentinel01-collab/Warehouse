@@ -148,18 +148,11 @@ class ItemsView(QWidget):
             self.data_changed.emit()
 
     def handle_import(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف Excel", "", "Excel Files (*.xlsx *.xls)")
-        if file_path:
-            try:
-                from services.import_service import ImportService
-                data = ImportService().extract_from_excel(file_path)
-                for item in data:
-                    self.service.create_item(item)
-                self.refresh()
-                QMessageBox.information(self, "نجاح", f"تم استيراد {len(data)} صنف بنجاح")
-                self.data_changed.emit()
-            except Exception as e:
-                QMessageBox.critical(self, "خطأ", f"فشل الاستيراد: {str(e)}")
+        from views.import_wizard import EnterpriseImportWizard
+        wizard = EnterpriseImportWizard(self.service, self)
+        if wizard.exec():
+            self.refresh()
+            self.data_changed.emit()
 
 class ItemDialog(QDialog):
     def __init__(self, parent=None, item_data=None):

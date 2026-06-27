@@ -82,21 +82,22 @@ def main():
             # Important: Switch to QuitOnLastWindowClosed=True once MainWindow is up
             app.setQuitOnLastWindowClosed(True)
             main_window = MainWindow()
-            main_window.show()
+            main_window.showMaximized()
         except Exception as e:
             app_logger.critical(f"MainWindow Initialization Failed: {e}\n{traceback.format_exc()}")
             QMessageBox.critical(None, "Critical Error", f"Failed to initialize main interface: {str(e)}")
             sys.exit(1)
 
-    # 7. Start with Login
-    # Force Language Check on Startup
-    from models.inventory import Settings
+    # 7. Start with Login & Opening Balance Check
+    from models.inventory import Settings, Item
     db = Session()
     sys_settings = db.query(Settings).first()
     if sys_settings and sys_settings.language:
         from utils.translation_manager import tr_manager
         tr_manager.set_language(sys_settings.language)
         app.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+
+    is_new_system = db.query(Item).count() == 0
     db.close()
 
     login = LoginView()
