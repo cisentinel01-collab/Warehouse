@@ -34,8 +34,15 @@ class ReportService:
                 return get_display(reshaped)
 
             # Header
+            # Logo Handling
+            logo_path = "logo/logo.png"
+            if os.path.exists(logo_path):
+                img = Image(logo_path, width=100, height=50)
+                elements.append(img)
+
             elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
             elements.append(Paragraph(fmt(tr("inventory_report")), styles['Heading2']))
+            elements.append(Paragraph(fmt(f"{tr('date')}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"), styles['Normal']))
             elements.append(Spacer(1, 12))
 
             # Data

@@ -31,7 +31,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setLayoutDirection(Qt.RightToLeft)
-    # Vital: Don't quit when LoginView closes, wait for MainWindow
+    # Vital: Don't quit when any window closes, let us manage the lifecycle
     app.setQuitOnLastWindowClosed(False)
 
     # 3. Global Exception Handling for PySide6

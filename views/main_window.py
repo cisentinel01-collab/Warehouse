@@ -215,9 +215,16 @@ class MainWindow(QMainWindow):
     def on_language_changed(self, lang):
         # Apply Direction first
         from PySide6.QtWidgets import QApplication
-        from PySide6.QtCore import Qt
         app = QApplication.instance()
-        app.setLayoutDirection(Qt.RightToLeft if lang == 'ar' else Qt.LeftToRight)
+        is_rtl = (lang == 'ar')
+        app.setLayoutDirection(Qt.RightToLeft if is_rtl else Qt.LeftToRight)
+
+        # Clear existing layout
+        if self.centralWidget().layout():
+            old_layout = self.centralWidget().layout()
+            # We must be careful not to delete widgets we want to keep
+            # but setup_ui recreates them.
+            QWidget().setLayout(old_layout) # Orphan the old layout
 
         # Full UI Refresh
         self.setup_ui()
@@ -249,7 +256,26 @@ class MainWindow(QMainWindow):
     def handle_logout(self):
         AuthManager.logout()
         from views.login_view import LoginView
+        from PySide6.QtWidgets import QApplication
+
+        # Vital: Ensure app doesn't quit during window transition
+        QApplication.instance().setQuitOnLastWindowClosed(False)
+
         self.login_window = LoginView()
+        # Re-connect login success to a handler that re-opens MainWindow
+        # In main.py we already have on_login_success which is nonlocal to main
+        # But here we are in MainWindow. Let's restart the app logic or just show login.
+        # Actually, the logic in main.py's on_login_success is what we want.
+        # Since main.py's app.exec() is still running, showing LoginView is enough.
+
+        # We need to reconnect the signal. We can't easily access the nonlocal in main.py.
+        # Let's import the logic needed.
+        def on_relogin(user_data):
+            QApplication.instance().setQuitOnLastWindowClosed(True)
+            self.new_main = MainWindow()
+            self.new_main.show()
+
+        self.login_window.login_success.connect(on_relogin)
         self.login_window.show()
         self.close()
 

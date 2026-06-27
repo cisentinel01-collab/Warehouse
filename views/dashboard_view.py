@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
                              QPushButton, QLabel, QGridLayout, QMessageBox,
                              QFrame, QScrollArea)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtCharts import QChart, QChartView, QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QPieSeries, QPieSlice
 from PySide6.QtGui import QPainter, QLinearGradient, QGradient, QColor
 import qtawesome as qta
@@ -12,6 +12,11 @@ class DashboardView(QWidget):
         super().__init__()
         self.service = service
         self.setup_ui()
+
+        # Auto-refresh every 30 seconds for Level 8 Elite Dashboard
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self.refresh)
+        self.refresh_timer.start(30000)
 
     def setup_ui(self):
         self.main_layout = QVBoxLayout(self)
@@ -30,15 +35,21 @@ class DashboardView(QWidget):
 
         # Header with Logo/Title
         header_frame = QFrame()
-        header_frame.setStyleSheet("background-color: #111; border-bottom: 2px solid #d4af37; padding: 10px;")
+        header_frame.setStyleSheet("background-color: #111; border-bottom: 2px solid #d4af37; padding: 15px;")
         header_h = QHBoxLayout(header_frame)
 
         logo_icon = QLabel()
-        logo_icon.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(45, 45))
+        import os
+        if os.path.exists("logo/logo.png"):
+            from PySide6.QtGui import QPixmap
+            logo_pix = QPixmap("logo/logo.png").scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_icon.setPixmap(logo_pix)
+        else:
+            logo_icon.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(45, 45))
         header_h.addWidget(logo_icon)
 
         header_title = QLabel("AMERICAN MARINE SERVICES FREEZONE")
-        header_title.setStyleSheet("font-size: 28px; font-weight: 900; color: #d4af37; letter-spacing: 2px;")
+        header_title.setStyleSheet("font-size: 30px; font-weight: 900; color: #d4af37; letter-spacing: 3px; font-family: 'Georgia';")
         header_h.addWidget(header_title)
 
         header_h.addStretch()
@@ -46,6 +57,10 @@ class DashboardView(QWidget):
         control_label = QLabel(tr("system_subtitle").upper())
         control_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #7f8c8d; border: 1px solid #333; padding: 5px 15px; border-radius: 15px;")
         header_h.addWidget(control_label)
+
+        self.last_updated_label = QLabel("Last Updated: --:--:--")
+        self.last_updated_label.setStyleSheet("color: #555; font-size: 10px; margin-right: 20px;")
+        header_h.addWidget(self.last_updated_label)
 
         layout.addWidget(header_frame)
 
@@ -161,13 +176,17 @@ class DashboardView(QWidget):
     def create_stat_card(self, title, value, icon, color):
         card = QFrame()
         card.setObjectName("ProStatCard")
-        card.setMinimumHeight(130)
+        card.setMinimumHeight(140)
         card.setStyleSheet(f"""
             QFrame#ProStatCard {{
-                background-color: #1c1e26;
-                border-left: 5px solid {color};
-                border-radius: 12px;
-                padding: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1c1e26, stop:1 #2c3e50);
+                border-bottom: 3px solid {color};
+                border-radius: 15px;
+                padding: 18px;
+            }}
+            QFrame#ProStatCard:hover {{
+                border-bottom: 5px solid {color};
+                background: #242730;
             }}
         """)
 
@@ -178,7 +197,7 @@ class DashboardView(QWidget):
         title_label.setStyleSheet("font-size: 12px; font-weight: bold; color: #95a5a6;")
 
         val_label = QLabel(value)
-        val_label.setStyleSheet(f"font-size: 32px; font-weight: 900; color: #ecf0f1;")
+        val_label.setStyleSheet(f"font-size: 36px; font-weight: 900; color: #ecf0f1;")
         val_label.setObjectName("ValueLabel")
 
         text_layout.addWidget(title_label)
@@ -286,7 +305,9 @@ class DashboardView(QWidget):
 
             # Update Performance Spotlight
             top_s = stats.get('top_supplier', {})
-            self.top_supplier_label.setText(f"{top_s.get('name', 'N/A')} (${top_s.get('value', 0):,.2f})")
+            self.top_supplier_label.setText(f"{top_s.get('name', 'N/A')} ({top_s.get('value', 0):,.2f})")
+
+            self.last_updated_label.setText(f"Last Synced: {datetime.now().strftime('%H:%M:%S')}")
 
         except Exception as e:
             from app_logging.app_logger import app_logger

@@ -164,6 +164,12 @@ class StockService:
         styles = getSampleStyleSheet()
         is_ar = tr_manager.current_language == 'ar'
 
+        # Logo at the Top
+        logo_path = "logo/logo.png"
+        if os.path.exists(logo_path):
+            from reportlab.platypus import Image as RLImage
+            elements.append(RLImage(logo_path, width=120, height=60))
+
         def fmt(txt):
             if not txt: return ""
             if not is_ar: return str(txt)
@@ -173,8 +179,14 @@ class StockService:
 
         elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
         elements.append(Paragraph(fmt(f"{tr('invoice')}: {m.reference_no}"), styles['Heading2']))
-        elements.append(Paragraph(fmt(f"{tr('date')}: {m.date}"), styles['Normal']))
-        elements.append(Spacer(1, 12))
+        elements.append(Paragraph(fmt(f"{tr('date')}: {m.date.strftime('%Y-%m-%d %H:%M')}"), styles['Normal']))
+
+        # Party info
+        party_label = tr("supplier") if m.type == "IN" else tr("issuing_entity")
+        party_name = m.supplier.name if m.type == "IN" and m.supplier else (m.issuing_entity or "N/A")
+        elements.append(Paragraph(fmt(f"{party_label}: {party_name}"), styles['Normal']))
+
+        elements.append(Spacer(1, 20))
 
         # Items
         m_items = self.db.query(MovementItem).filter(MovementItem.movement_id == movement_id).all()
