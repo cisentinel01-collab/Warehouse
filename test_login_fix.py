@@ -21,7 +21,7 @@ def test_login_fix():
         old = db.query(User).filter(User.username == username).first()
         if old: db.delete(old); db.commit()
 
-        auth_service.create_user(username, password, "Auth Tester", "admin")
+        auth_service.register({"username": username, "password": password, "full_name": "Auth Tester", "role": "admin"})
         print(f"User {username} created.")
 
         # Test Login via AuthManager

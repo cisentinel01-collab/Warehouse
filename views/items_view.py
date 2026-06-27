@@ -81,8 +81,12 @@ class ItemsView(QWidget):
         self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.view)
 
-        self.headers = ["code", "name", "category", "unit", "current_stock", "min_stock"]
-        self.translated_headers = [tr("item_code"), tr("item_name"), tr("category"), tr("unit"), tr("current_stock"), tr("min_stock")]
+        self.view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.view.customContextMenuRequested.connect(self.show_context_menu)
+        self.view.doubleClicked.connect(self.handle_analysis)
+
+        self.headers = ["code", "name", "category", "unit", "current_stock", "min_stock", "actions"]
+        self.translated_headers = [tr("item_code"), tr("item_name"), tr("category"), tr("unit"), tr("current_stock"), tr("min_stock"), tr("actions")]
         self.model = EnterpriseTableModel([], self.headers, self.translated_headers)
         self.view.setModel(self.model)
 
@@ -110,7 +114,8 @@ class ItemsView(QWidget):
                 "category": i.category,
                 "unit": u_text,
                 "current_stock": i.current_stock,
-                "min_stock": i.min_stock
+                "min_stock": i.min_stock,
+                "actions": tr("view_analysis")
             })
         self.model.update_data(data)
         self.page_label.setText(f"صفحة {self.current_page + 1}")
@@ -154,6 +159,52 @@ class ItemsView(QWidget):
             self.refresh()
             self.data_changed.emit()
 
+    def show_context_menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+        index = self.view.indexAt(pos)
+        if not index.isValid(): return
+
+        menu = QMenu(self)
+        analysis_act = menu.addAction(qta.icon("fa5s.chart-bar"), tr("view_analysis"))
+        edit_act = menu.addAction(qta.icon("fa5s.edit"), tr("edit"))
+        delete_act = menu.addAction(qta.icon("fa5s.trash-alt"), tr("delete"))
+
+        action = menu.exec(self.view.viewport().mapToGlobal(pos))
+        if action == analysis_act:
+            self.handle_analysis(index)
+        elif action == edit_act:
+            self.handle_edit(index)
+        elif action == delete_act:
+            self.handle_delete(index)
+
+    def handle_analysis(self, index):
+        if not index.isValid(): return
+        item_id = self.model._data[index.row()].get("id")
+        if item_id:
+            # For now re-use the item details or create analysis
+            QMessageBox.information(self, tr("view_analysis"), f"Analysis for Item ID: {item_id}")
+
+    def handle_edit(self, index):
+        if not index.isValid(): return
+        item_data = self.model._data[index.row()]
+        item_id = item_data.get("id")
+
+        dialog = ItemDialog(self, item_data=item_data)
+        if dialog.exec():
+            data = dialog.get_data()
+            # Ensure price/quantity etc are handled as floats in the service
+            self.service.update_item(item_id, data)
+            self.refresh()
+            self.data_changed.emit()
+
+    def handle_delete(self, index):
+        if not index.isValid(): return
+        item_id = self.model._data[index.row()].get("id")
+        if QMessageBox.question(self, tr("confirm"), tr("delete_confirm")) == QMessageBox.Yes:
+            self.service.delete_item(item_id)
+            self.refresh()
+            self.data_changed.emit()
+
 class ItemDialog(QDialog):
     def __init__(self, parent=None, item_data=None):
         super().__init__(parent)
@@ -181,6 +232,12 @@ class ItemDialog(QDialog):
         self.category_input.setPlaceholderText("مثال: قطع غيار")
 
         self.uom_input = QLineEdit()
+
+        if self.item_data:
+            self.code_input.setText(str(self.item_data.get('code', '')))
+            self.name_input.setText(str(self.item_data.get('name', '')))
+            self.category_input.setText(str(self.item_data.get('category', '')))
+            self.uom_input.setText(str(self.item_data.get('unit', '')))
 
         self.min_stock_input = QSpinBox()
         self.min_stock_input.setMaximum(1000000)

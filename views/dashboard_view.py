@@ -108,6 +108,38 @@ class DashboardView(QWidget):
 
         layout.addLayout(charts_layout)
 
+        # Middle-Bottom Section: Smart Critical Lists (Level 9)
+        critical_layout = QHBoxLayout()
+        critical_layout.setSpacing(30)
+
+        # Low Stock List
+        ls_frame = QFrame()
+        ls_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 15px;")
+        ls_vbox = QVBoxLayout(ls_frame)
+        ls_header = QLabel(tr("low_stock_details").upper())
+        ls_header.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 14px;")
+        ls_vbox.addWidget(ls_header)
+
+        self.ls_list = QVBoxLayout()
+        ls_vbox.addLayout(self.ls_list)
+        ls_vbox.addStretch()
+        critical_layout.addWidget(ls_frame, 1)
+
+        # Expiring Soon List
+        ex_frame = QFrame()
+        ex_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 15px;")
+        ex_vbox = QVBoxLayout(ex_frame)
+        ex_header = QLabel(tr("expiring_details").upper())
+        ex_header.setStyleSheet("color: #f39c12; font-weight: bold; font-size: 14px;")
+        ex_vbox.addWidget(ex_header)
+
+        self.ex_list = QVBoxLayout()
+        ex_vbox.addLayout(self.ex_list)
+        ex_vbox.addStretch()
+        critical_layout.addWidget(ex_frame, 1)
+
+        layout.addLayout(critical_layout)
+
         # Bottom Section: High-Density Analytics
         bottom_layout = QHBoxLayout()
         bottom_layout.setSpacing(30)
@@ -303,6 +335,26 @@ class DashboardView(QWidget):
                 feed_row = QLabel(f"[{m['time']}] {m_type_txt}: {m['ref']} ({int(m['qty'])} items)")
                 feed_row.setStyleSheet(f"color: {color}; font-size: 12px; font-family: 'Consolas';")
                 self.live_feed_list.addWidget(feed_row)
+
+            # Update Low Stock Details
+            while self.ls_list.count():
+                child = self.ls_list.takeAt(0)
+                if child.widget(): child.widget().deleteLater()
+
+            for i in stats.get('low_stock_details', []):
+                row = QLabel(f"• {i['name']} ({i['stock']}) | {i['supplier']} | ${i['last_price']:,.2f}")
+                row.setStyleSheet("color: #ecf0f1; font-size: 12px; padding: 2px;")
+                self.ls_list.addWidget(row)
+
+            # Update Expiring Details
+            while self.ex_list.count():
+                child = self.ex_list.takeAt(0)
+                if child.widget(): child.widget().deleteLater()
+
+            for e in stats.get('expiring_details', []):
+                row = QLabel(f"• {e['name']} (Lot: {e['lot']}) | Exp: {e['expiry']} | Qty: {e['qty']}")
+                row.setStyleSheet("color: #ecf0f1; font-size: 12px; padding: 2px;")
+                self.ex_list.addWidget(row)
 
             # Update Performance Spotlight
             top_s = stats.get('top_supplier', {})

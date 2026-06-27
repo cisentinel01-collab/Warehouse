@@ -18,8 +18,8 @@ class ImportVerificationDialog(QDialog):
         layout.addWidget(QLabel("يرجى مراجعة وتعديل البيانات قبل استيرادها للمخزن:"))
 
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["الكود", "اسم الصنف", "الكمية", "السعر"])
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["الكود", "اسم الصنف", "الكمية", "السعر", "تاريخ الانتاج", "تاريخ الانتهاء"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         self.load_data()
@@ -46,6 +46,8 @@ class ImportVerificationDialog(QDialog):
             self.table.setItem(row, 1, QTableWidgetItem(str(item.get('name', ''))))
             self.table.setItem(row, 2, QTableWidgetItem(str(item.get('quantity', 0))))
             self.table.setItem(row, 3, QTableWidgetItem(str(item.get('price', 0))))
+            self.table.setItem(row, 4, QTableWidgetItem(str(item.get('production_date', ''))))
+            self.table.setItem(row, 5, QTableWidgetItem(str(item.get('expiry_date', ''))))
 
     def accept_data(self):
         self.confirmed_data = []
@@ -63,7 +65,9 @@ class ImportVerificationDialog(QDialog):
                     'code': code_item.text(),
                     'name': name_item.text(),
                     'quantity': float(qty_item.text()),
-                    'price': float(price_item.text())
+                    'price': float(price_item.text()),
+                    'production_date': self.table.item(row, 4).text() if self.table.item(row, 4) else None,
+                    'expiry_date': self.table.item(row, 5).text() if self.table.item(row, 5) else None
                 })
             except ValueError:
                 QMessageBox.warning(self, "خطأ", f"خطأ في بيانات الصف رقم {row+1}")

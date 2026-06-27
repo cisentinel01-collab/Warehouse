@@ -51,7 +51,7 @@ class ReportService:
                 h_table = Table(header_data, colWidths=[350, 150] if not is_ar else [150, 350])
                 h_table.setStyle(TableStyle([
                     ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                    ('LINEBELOW', (0,0), (-1,-1), 1, colors.HexColor('#d4af37'))
+                    ('LINEBELOW', (0,0), (-1,-1), 3, colors.HexColor('#d4af37'))
                 ]))
                 elements.append(h_table)
 
@@ -59,6 +59,9 @@ class ReportService:
             elements.append(Paragraph(fmt(tr("inventory_report").upper()), styles['Heading2']))
             elements.append(Paragraph(fmt(f"{tr('date')}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"), styles['Normal']))
             elements.append(Spacer(1, 20))
+
+            # Pro-Level Data Fetching (Move up for Summary calculation)
+            items = self.db.query(Item).filter(Item.active == True).all()
 
             # Summary Analytics Top Bar (Pro Max)
             total_items = len(items)
@@ -75,7 +78,6 @@ class ReportService:
             elements.append(Spacer(1, 15))
 
             # Pro-Level Data Table
-            items = self.db.query(Item).filter(Item.active == True).all()
             headers = [tr("item_code"), tr("item_name"), tr("category"), tr("current_stock"), tr("unit")]
             if is_ar: headers.reverse()
 

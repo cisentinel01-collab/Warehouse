@@ -35,7 +35,9 @@ class ImportService:
                 'name': ['اسم الصنف', 'Item Name', 'Description', 'Details', 'الصنف', 'البيان', 'Product', 'Model', 'النوع', 'اسم المنتج', 'اسم المادة', 'Nomenclature', 'Service', 'Task', 'Subject', 'Article', 'Items'],
                 'quantity': ['الكمية', 'Quantity', 'Qty', 'Amount', 'العدد', 'الوحدات', 'Vol', 'Stock', 'Count', 'عدد الوحدات', 'QNT', 'Weight', 'Size', 'UOM', 'Units'],
                 'price': ['السعر', 'Unit Price', 'Price', 'Rate', 'سعر الوحدة', 'القيمة', 'Cost', 'Unit Cost', 'المبلغ', 'سعر المفرد', 'Price Each', 'Total Price', 'Net Price', 'Total Amt', 'Value'],
-                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة', 'ID', 'Part #', 'Index', 'Code', 'No.']
+                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة', 'ID', 'Part #', 'Index', 'Code', 'No.'],
+                'production_date': ['تاريخ الانتاج', 'Production Date', 'MFG Date', 'MFG'],
+                'expiry_date': ['تاريخ الانتهاء', 'Expiry Date', 'Exp', 'Valid Until']
             }
 
             col_map = {}
@@ -86,11 +88,19 @@ class ImportService:
 
                 if not name_val or any(x in str(name_val).lower() for x in ['total', 'sum', 'إجمالي', 'مجموع']): continue
 
+                def clean_date(val):
+                    if pd.isna(val) or val == "": return None
+                    try:
+                        return pd.to_datetime(val).strftime("%Y-%m-%d")
+                    except: return None
+
                 results.append({
                     'code': code_val,
                     'name': str(name_val).strip(),
                     'quantity': qty_val,
-                    'price': price_val
+                    'price': price_val,
+                    'production_date': clean_date(row.get(col_map.get('production_date'))),
+                    'expiry_date': clean_date(row.get(col_map.get('expiry_date')))
                 })
             return results
         except Exception as e:

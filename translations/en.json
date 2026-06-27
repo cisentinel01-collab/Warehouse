@@ -69,6 +69,8 @@
   "top_performance": "Performance Spotlight",
   "top_supplier": "Top Strategic Supplier",
   "live_movement_feed": "Live Movement Feed",
+  "low_stock_details": "Critical Inventory: Action Required",
+  "expiring_details": "Expiring Batches: Immediate Attention",
   "operation_details": "Operation Details",
   "auto_generated": "Auto-Generated",
   "invoice_no": "Invoice/Ref No",

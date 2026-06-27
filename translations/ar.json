@@ -69,6 +69,8 @@
   "top_performance": "نظرة على الأداء",
   "top_supplier": "أكثر الموردين تعاملاً",
   "live_movement_feed": "بث مباشر للحركات",
+  "low_stock_details": "نواقص المخزون: تتطلب إجراء",
+  "expiring_details": "دفعات قاربت الانتهاء: انتباه فوري",
   "operation_details": "بيانات العملية",
   "auto_generated": "توليد تلقائي",
   "invoice_no": "رقم الفاتورة/المرجع",

@@ -19,6 +19,8 @@ class PrintPreviewDialog(QDialog):
 
         # Internal PDF Viewer using WebEngine (Chromium-based)
         self.web_view = QWebEngineView()
+        # Optimization: Clear cache on each load for freshness
+        self.web_view.page().profile().clearHttpCache()
         # Set settings to allow local file access
         self.web_view.settings().setAttribute(self.web_view.settings().WebAttribute.LocalContentCanAccessRemoteUrls, True)
         self.web_view.settings().setAttribute(self.web_view.settings().WebAttribute.PluginsEnabled, True)

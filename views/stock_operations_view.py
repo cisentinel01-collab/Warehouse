@@ -180,11 +180,13 @@ class StockOperationsView(QWidget):
         table_group = QGroupBox(tr("added_items"))
         table_layout = QVBoxLayout(table_group)
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        headers = [tr("item_code"), tr("item_name"), tr("quantity"), tr("unit_price")]
+        self.table.setColumnCount(5)
+        headers = [tr("item_code"), tr("item_name"), tr("quantity"), tr("unit_price"), tr("actions")]
         self.table.setHorizontalHeaderLabels(headers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setMinimumHeight(300)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.show_table_context_menu)
         table_layout.addWidget(self.table)
 
         clear_btn = QPushButton(tr("clear_all"))
@@ -294,14 +296,23 @@ class StockOperationsView(QWidget):
                     QMessageBox.information(self, "تنبيه", f"الصنف {item['name']} غير موجود في النظام. يرجى إضافته يدوياً.")
                     continue
 
-                self.items_to_move.append({
+                item_entry = {
                     "item_id": item_id,
                     "item_name": item_name,
                     "item_code": item_code,
                     "quantity": item['quantity'],
                     "price": item['price'],
                     "unit": sys_item.get('unit', '')
-                })
+                }
+
+                if self.op_type == "IN":
+                    item_entry["batch_info"] = {
+                        "batch_number": "AI_IMPORT",
+                        "production_date": item.get('production_date'),
+                        "expiry_date": item.get('expiry_date')
+                    }
+
+                self.items_to_move.append(item_entry)
 
                 row = self.table.rowCount()
                 self.table.insertRow(row)
@@ -466,6 +477,24 @@ class StockOperationsView(QWidget):
         self.item_combo.setEditText(text)
         self.item_combo.blockSignals(False)
 
+    def show_table_context_menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+        index = self.table.indexAt(pos)
+        if not index.isValid(): return
+
+        menu = QMenu(self)
+        delete_act = menu.addAction(qta.icon("fa5s.trash-alt", color="#e74c3c"), tr("delete"))
+        action = menu.exec(self.table.viewport().mapToGlobal(pos))
+
+        if action == delete_act:
+            self.remove_item_from_list(index.row())
+
+    def remove_item_from_list(self, row):
+        if row < len(self.items_to_move):
+            self.items_to_move.pop(row)
+            self.table.removeRow(row)
+            self.update_summary()
+
     def clear_list(self):
         if self.items_to_move:
             self.table.setRowCount(0)
@@ -540,6 +569,13 @@ class StockOperationsView(QWidget):
             self.table.setItem(row, 1, QTableWidgetItem(str(item_name)))
             self.table.setItem(row, 2, QTableWidgetItem(str(qty)))
             self.table.setItem(row, 3, QTableWidgetItem(str(price)))
+
+            del_btn = QPushButton()
+            del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
+            del_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
+            del_btn.setFixedSize(30, 30)
+            del_btn.clicked.connect(lambda _, r=row: self.remove_item_from_list(r))
+            self.table.setCellWidget(row, 4, del_btn)
 
             item_entry = {
                 "item_id": item_id,

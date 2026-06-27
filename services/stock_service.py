@@ -175,7 +175,7 @@ class StockService:
         logo_path = "logo/logo.png"
         header_data = []
         if os.path.exists(logo_path):
-            logo = Image(logo_path, width=120, height=60)
+            logo = Image(logo_path, width=150, height=75)
             company_info = [
                 [Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title'])],
                 [Paragraph(fmt(settings.address or ""), styles['Normal'])],
@@ -191,7 +191,7 @@ class StockService:
             h_table = Table(header_data, colWidths=[350, 150] if not is_ar else [150, 350])
             h_table.setStyle(TableStyle([
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('LINEBELOW', (0,0), (-1,-1), 2, colors.HexColor('#d4af37'))
+                ('LINEBELOW', (0,0), (-1,-1), 3, colors.HexColor('#d4af37'))
             ]))
             elements.append(h_table)
 

@@ -51,3 +51,12 @@ class ItemService:
 
     def get_item_by_id(self, item_id: int) -> Optional[Item]:
         return self.item_repo.get_by_id(item_id)
+
+    def update_item(self, item_id: int, data: dict):
+        item = self.item_repo.get_by_id(item_id)
+        if item:
+            return self.item_repo.update(item, data)
+        return None
+
+    def delete_item(self, item_id: int):
+        return self.item_repo.delete(item_id)

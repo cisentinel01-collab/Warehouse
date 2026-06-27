@@ -8,18 +8,43 @@ class DashboardService:
         self.db = db
 
     def get_stats(self):
-        from models.inventory import Movement
+        from models.inventory import Movement, Supplier, MovementItem
 
         # 1. Base Stats
-        total_items = self.db.query(Item).filter(Item.active == True).count()
-        low_stock = self.db.query(Item).filter(Item.active == True, Item.current_stock <= Item.min_stock).count()
+        active_items_query = self.db.query(Item).filter(Item.active == True)
+        total_items = active_items_query.count()
+
+        # Detailed Low Stock Analysis (Actionable)
+        low_stock_items = active_items_query.filter(Item.current_stock <= Item.min_stock).all()
+        low_stock_count = len(low_stock_items)
+        low_stock_details = []
+        for i in low_stock_items:
+            # Get last purchase price and supplier
+            last_in = self.db.query(MovementItem).join(Movement).filter(
+                MovementItem.item_id == i.id, Movement.type == 'IN'
+            ).order_by(Movement.date.desc()).first()
+
+            low_stock_details.append({
+                'name': i.name,
+                'code': i.code,
+                'stock': i.current_stock,
+                'supplier': last_in.movement.supplier.name if last_in and last_in.movement.supplier else "N/A",
+                'last_price': float(last_in.price) if last_in else 0.0
+            })
 
         future_date = datetime.now() + timedelta(days=180)
-        expiring_soon = self.db.query(StockLot).filter(
+        expiring_lots = self.db.query(StockLot).filter(
             StockLot.expiry_date >= datetime.now().date(),
             StockLot.expiry_date <= future_date.date(),
             StockLot.quantity > 0
-        ).count()
+        ).all()
+        expiring_soon_count = len(expiring_lots)
+        expiring_details = [{
+            'name': l.item.name,
+            'lot': l.lot_number,
+            'expiry': l.expiry_date.strftime("%Y-%m-%d"),
+            'qty': l.quantity
+        } for l in expiring_lots]
 
         # 2. Advanced KPIs
         # Total Valuation based on current stock and latest purchase price
@@ -104,8 +129,10 @@ class DashboardService:
 
         return {
             "total_items": total_items,
-            "low_stock": low_stock,
-            "expiring_soon": expiring_soon,
+            "low_stock": low_stock_count,
+            "low_stock_details": low_stock_details,
+            "expiring_soon": expiring_soon_count,
+            "expiring_details": expiring_details,
             "total_value": float(total_value),
             "trends": trends,
             "top_moving": top_moving,
