@@ -98,27 +98,61 @@ class ImportService:
             return []
 
     def extract_from_pdf(self, file_path: str) -> List[Dict]:
-        """Extracts table data from PDF invoices with OCR fallback."""
+        """v7 Hybrid Extraction: Structural Digital Tables + Keyword Heuristics + OCR Fallback."""
         results = []
         try:
             with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
-                    # Try digital extraction first
-                    tables = page.extract_tables()
+                    # 1. Structural Digital Table Extraction
+                    tables = page.extract_tables({
+                        "vertical_strategy": "lines",
+                        "horizontal_strategy": "lines",
+                        "intersection_y_tolerance": 10
+                    })
+
                     if tables:
                         for table in tables:
                             if not table or len(table) < 2: continue
                             results.extend(self._process_table_rows(table))
-                    else:
-                        # Fallback to OCR for scanned PDFs
-                        results.extend(self.extract_from_image(file_path))
+
+                    # 2. Heuristic Line-by-Line (if tables failed or incomplete)
+                    if len(results) < 2:
+                        text = page.extract_text()
+                        if text:
+                            results.extend(self._extract_via_heuristics(text))
+
+                # 3. Final OCR Fallback (if still no good data)
+                if not results:
+                    results.extend(self.extract_from_image(file_path))
+
             return results
         except Exception as e:
             print(f"PDF Extraction Error: {e}")
             return []
 
+    def _extract_via_heuristics(self, text: str) -> List[Dict]:
+        """Advanced Regex & Keyword matching for non-tabular digital text."""
+        heuristic_results = []
+        # Look for patterns: [Name/Desc] ... [Qty] ... [Price]
+        lines = text.split('\n')
+        for line in lines:
+            # Skip totals
+            if any(x in line.lower() for x in ['total', 'sum', 'إجمالي', 'مجموع']): continue
+
+            # Pattern: Long string followed by 1 or 2 numbers
+            # Matches many standard invoice formats
+            parts = re.findall(r'(\w[\w\s\.-]{5,})\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)?', line)
+            for p in parts:
+                heuristic_results.append({
+                    'name': p[0].strip(),
+                    'quantity': float(p[1]),
+                    'price': float(p[2]) if p[2] else 0.0,
+                    'code': ""
+                })
+        return heuristic_results
+
     def extract_from_image(self, file_path: str) -> List[Dict]:
-        """OCR-based extraction for scans and images using PaddleOCR."""
+        """OCR-based extraction for scans and images using PaddleOCR with Layout Analysis."""
         try:
             from paddleocr import PaddleOCR
             # Initialize with Arabic/English support

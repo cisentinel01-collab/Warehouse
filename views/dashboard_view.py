@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtCharts import QChart, QChartView, QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QPieSeries, QPieSlice
 from PySide6.QtGui import QPainter, QLinearGradient, QGradient, QColor
 import qtawesome as qta
+from datetime import datetime
 from utils.translation_manager import tr, tr_manager
 
 class DashboardView(QWidget):

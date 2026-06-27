@@ -1,42 +1,48 @@
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame)
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QScrollArea)
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt
+from PySide6.QtWebEngineWidgets import QWebEngineView
 import qtawesome as qta
 import os
 
 class PrintPreviewDialog(QDialog):
     def __init__(self, file_path, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("معاينة المستند")
-        self.resize(800, 600)
+        from utils.translation_manager import tr, tr_manager
+        self.setWindowTitle(tr("document_preview"))
+        self.resize(1000, 800)
         self.file_path = file_path
         self.setup_ui()
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
-        info_label = QLabel(f"تم توليد المستند بنجاح:\n{os.path.abspath(self.file_path)}")
-        info_label.setAlignment(Qt.AlignCenter)
-        info_label.setStyleSheet("font-size: 14px; margin: 20px;")
-        layout.addWidget(info_label)
+        # Internal PDF Viewer using WebEngine (Chromium-based)
+        self.web_view = QWebEngineView()
+        # Set settings to allow local file access
+        self.web_view.settings().setAttribute(self.web_view.settings().WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        self.web_view.settings().setAttribute(self.web_view.settings().WebAttribute.PluginsEnabled, True)
 
-        icon_label = QLabel()
-        icon_label.setPixmap(qta.icon("fa5s.file-pdf", color="#e74c3c").pixmap(100, 100))
-        icon_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(icon_label)
+        # Convert path to URL
+        from PySide6.QtCore import QUrl
+        file_url = QUrl.fromLocalFile(os.path.abspath(self.file_path))
+        self.web_view.load(file_url)
+
+        layout.addWidget(self.web_view)
 
         btn_layout = QHBoxLayout()
-        open_btn = QPushButton("فتح الملف")
-        open_btn.setObjectName("GoldButton")
-        open_btn.clicked.connect(self.open_file)
+        from utils.translation_manager import tr
 
-        close_btn = QPushButton("إغلاق")
+        external_btn = QPushButton(tr("open_externally"))
+        external_btn.setIcon(qta.icon("fa5s.external-link-alt"))
+        external_btn.clicked.connect(self.open_file)
+
+        close_btn = QPushButton(tr("close"))
         close_btn.clicked.connect(self.accept)
 
         btn_layout.addStretch()
-        btn_layout.addWidget(open_btn)
+        btn_layout.addWidget(external_btn)
         btn_layout.addWidget(close_btn)
-        btn_layout.addStretch()
 
         layout.addLayout(btn_layout)
 

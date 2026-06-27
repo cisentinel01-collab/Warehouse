@@ -86,8 +86,12 @@ class MainWindow(QMainWindow):
 
     def setup_ui(self):
         from utils.translation_manager import tr_manager
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
+        main_widget = self.centralWidget()
+        # Clear existing layout if any
+        if main_widget.layout():
+            import sip
+            sip.delete(main_widget.layout())
+
         layout = QHBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -135,11 +139,11 @@ class MainWindow(QMainWindow):
 
         # Layout Ordering for Sidebar Flip
         if tr_manager.is_rtl:
-            layout.addWidget(content_container)
+            layout.addWidget(content_container, 1)
             layout.addWidget(self.sidebar)
         else:
             layout.addWidget(self.sidebar)
-            layout.addWidget(content_container)
+            layout.addWidget(content_container, 1)
 
         # Header
         header = QFrame()
@@ -176,6 +180,7 @@ class MainWindow(QMainWindow):
         self.nav_buttons[id] = btn
 
     def switch_page(self, page_id):
+        if page_id not in self.nav_buttons: return
         try:
             self.nav_buttons[page_id].setChecked(True)
             self.page_title.setText(self.nav_buttons[page_id].text())
@@ -219,14 +224,20 @@ class MainWindow(QMainWindow):
         is_rtl = (lang == 'ar')
         app.setLayoutDirection(Qt.RightToLeft if is_rtl else Qt.LeftToRight)
 
-        # Clear existing layout
-        if self.centralWidget().layout():
-            old_layout = self.centralWidget().layout()
-            # We must be careful not to delete widgets we want to keep
-            # but setup_ui recreates them.
-            QWidget().setLayout(old_layout) # Orphan the old layout
+        # Explicitly update MainWindow direction
+        self.setLayoutDirection(Qt.RightToLeft if is_rtl else Qt.LeftToRight)
 
-        # Full UI Refresh
+        # Vital: Clear the stack to prevent reference cycles and hanging
+        while self.stack.count():
+            widget = self.stack.widget(0)
+            self.stack.removeWidget(widget)
+            widget.deleteLater()
+
+        # Full UI Refresh by reconstructing central widget
+        new_central = QWidget()
+        self.setCentralWidget(new_central)
+
+        self.init_views()
         self.setup_ui()
         # Re-attach views to the new stack
         self.stack.addWidget(self.dashboard_view)

@@ -7,6 +7,7 @@ pdfplumber
 psycopg2-binary
 pydantic-settings
 PySide6
+PySide6-WebEngine
 python-bidi
 python-dotenv
 reportlab

@@ -165,13 +165,16 @@ class ItemDialog(QDialog):
     def __init__(self, parent=None, item_data=None):
         super().__init__(parent)
         self.item_data = item_data
-        self.setWindowTitle("تعديل بيانات الصنف" if item_data else "إضافة صنف جديد")
+        from utils.translation_manager import tr, tr_manager
+        self.setWindowTitle(tr("edit") if item_data else tr("add_item"))
         self.resize(500, 500)
-        self.setLayoutDirection(Qt.RightToLeft)
+        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
         self.setup_ui()
 
     def setup_ui(self):
+        from utils.translation_manager import tr, tr_manager
         layout = QFormLayout(self)
+        layout.setLabelAlignment(Qt.AlignRight if tr_manager.is_rtl else Qt.AlignLeft)
         from utils.validator import Validator
 
         self.code_input = QLineEdit()
@@ -215,10 +218,10 @@ class ItemDialog(QDialog):
         layout.addRow(tr("min_stock") + ":", self.min_stock_input)
 
         btns = QHBoxLayout()
-        save_btn = QPushButton("حفظ")
+        save_btn = QPushButton(tr("save"))
         save_btn.setObjectName("PrimaryButton")
         save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("إلغاء")
+        cancel_btn = QPushButton(tr("cancel"))
         cancel_btn.clicked.connect(self.reject)
         btns.addWidget(save_btn)
         btns.addWidget(cancel_btn)

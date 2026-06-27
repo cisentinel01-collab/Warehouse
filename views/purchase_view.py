@@ -12,13 +12,15 @@ class PurchaseView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
+        from utils.translation_manager import tr, tr_manager
+        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Toolbar
         toolbar = QHBoxLayout()
 
-        suggest_btn = QPushButton("توليد مقترحات الشراء")
+        suggest_btn = QPushButton(tr("generate_suggestions"))
         suggest_btn.setObjectName("GoldButton")
         suggest_btn.setIcon(qta.icon("fa5s.magic", color="black"))
         from utils.auth import AuthManager
@@ -28,7 +30,7 @@ class PurchaseView(QWidget):
         suggest_btn.clicked.connect(self.handle_suggest)
         toolbar.addWidget(suggest_btn)
 
-        refresh_btn = QPushButton("تحديث")
+        refresh_btn = QPushButton(tr("refresh"))
         refresh_btn.setIcon(qta.icon("fa5s.sync", color="white"))
         refresh_btn.clicked.connect(self.refresh)
         toolbar.addWidget(refresh_btn)
@@ -39,7 +41,8 @@ class PurchaseView(QWidget):
         # Table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["رقم الطلب", "المورد", "التاريخ", "الإجمالي", "الحالة", "إجراءات"])
+        headers = [tr("order_no"), tr("supplier"), tr("date"), tr("total"), tr("status"), tr("actions")]
+        self.table.setHorizontalHeaderLabels(headers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.table)
 
