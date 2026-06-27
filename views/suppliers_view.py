@@ -139,8 +139,42 @@ class SuppliersView(QWidget):
             dialog.exec()
 
     def handle_edit(self, index):
-        # Implementation of edit logic
-        pass
+        if not index.isValid(): return
+        s_data = self.model._data[index.row()]
+
+        from PySide6.QtWidgets import QDialog, QFormLayout
+        from utils.validator import Validator
+        dialog = QDialog(self)
+        dialog.setWindowTitle("تعديل بيانات مورد")
+        d_layout = QFormLayout(dialog)
+
+        name = QLineEdit(s_data['name'])
+        Validator.setup_strict_validation(name, "name")
+        phone = QLineEdit(s_data['phone'])
+        Validator.setup_strict_validation(phone, "phone")
+        email = QLineEdit(s_data['email'])
+        address = QLineEdit(s_data['address'])
+
+        d_layout.addRow("الاسم:", name)
+        d_layout.addRow("الهاتف:", phone)
+        d_layout.addRow("البريد:", email)
+        d_layout.addRow("العنوان:", address)
+
+        save = QPushButton("تحديث")
+        save.clicked.connect(lambda: self.update_supplier(dialog, s_data['id'], {
+            "name": name.text(), "phone": phone.text(), "email": email.text(),
+            "address": address.text()
+        }))
+        d_layout.addRow(save)
+        dialog.exec()
+
+    def update_supplier(self, dialog, s_id, data):
+        if not data['name']:
+            QMessageBox.warning(self, "تنبيه", "الاسم مطلوب")
+            return
+        if self.service.update_supplier(s_id, data):
+            dialog.accept()
+            self.refresh()
 
     def handle_search(self):
         term = self.search_input.text()

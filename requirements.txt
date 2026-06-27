@@ -18,3 +18,5 @@ pytest==9.1.1
 pytest-qt==4.5.0
 thefuzz
 python-Levenshtein
+paddleocr
+paddlepaddle

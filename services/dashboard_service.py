@@ -84,6 +84,22 @@ class DashboardService:
         cats = self.db.query(Item.category, func.count(Item.id)).group_by(Item.category).all()
         category_dist = {str(cat or "Other"): count for cat, count in cats}
 
+        # Recent Movements (Live Feed)
+        recent_movements = []
+        try:
+            from models.inventory import Movement
+            movements = self.db.query(Movement).order_by(Movement.date.desc()).limit(10).all()
+            for m in movements:
+                total_qty = sum(mi.quantity for mi in m.items)
+                recent_movements.append({
+                    'type': m.type,
+                    'ref': m.reference_no,
+                    'qty': total_qty,
+                    'time': m.date.strftime("%H:%M:%S")
+                })
+        except Exception as e:
+            app_logger.error(f"Live feed error: {e}")
+
         return {
             "total_items": total_items,
             "low_stock": low_stock,
@@ -93,5 +109,6 @@ class DashboardService:
             "top_moving": top_moving,
             "top_supplier": top_supplier,
             "category_dist": category_dist,
-            "aging_items": int(aging_count)
+            "aging_items": int(aging_count),
+            "live_feed": recent_movements
         }

@@ -30,12 +30,12 @@ class ImportService:
             df = df.iloc[header_row_idx+1:]
             df = df.dropna(how='all', axis=0)
 
-            # 2. Hyper-Fuzzy Header Detection (40+ variants)
+            # 2. Hyper-Fuzzy Header Detection (50+ variants)
             target_fields = {
-                'name': ['اسم الصنف', 'Item Name', 'Description', 'Details', 'الصنف', 'البيان', 'Product', 'Model', 'النوع', 'اسم المنتج', 'اسم المادة', 'Nomenclature', 'Service', 'Task'],
-                'quantity': ['الكمية', 'Quantity', 'Qty', 'Amount', 'العدد', 'الوحدات', 'Vol', 'Stock', 'Count', 'كست', 'عدد الوحدات', 'QNT', 'Weight', 'Size'],
-                'price': ['السعر', 'Unit Price', 'Price', 'Rate', 'سعر الوحدة', 'القيمة', 'Cost', 'Unit Cost', 'المبلغ', 'سعر المفرد', 'Price Each', 'Total Price', 'Net Price'],
-                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة', 'ID', 'Part #', 'Index']
+                'name': ['اسم الصنف', 'Item Name', 'Description', 'Details', 'الصنف', 'البيان', 'Product', 'Model', 'النوع', 'اسم المنتج', 'اسم المادة', 'Nomenclature', 'Service', 'Task', 'Subject', 'Article', 'Items'],
+                'quantity': ['الكمية', 'Quantity', 'Qty', 'Amount', 'العدد', 'الوحدات', 'Vol', 'Stock', 'Count', 'عدد الوحدات', 'QNT', 'Weight', 'Size', 'UOM', 'Units'],
+                'price': ['السعر', 'Unit Price', 'Price', 'Rate', 'سعر الوحدة', 'القيمة', 'Cost', 'Unit Cost', 'المبلغ', 'سعر المفرد', 'Price Each', 'Total Price', 'Net Price', 'Total Amt', 'Value'],
+                'code': ['الكود', 'Item Code', 'Part No', 'SKU', 'رقم الصنف', 'الباركود', 'Barcode', 'Ref', 'Reference', 'Serial', 'رقم المادة', 'ID', 'Part #', 'Index', 'Code', 'No.']
             }
 
             col_map = {}
@@ -94,47 +94,65 @@ class ImportService:
                 })
             return results
         except Exception as e:
-            print(f"v4 Hyper-Smart Excel Extraction Error: {e}")
+            print(f"v6 Hyper-Smart Excel Extraction Error: {e}")
             return []
 
     def extract_from_pdf(self, file_path: str) -> List[Dict]:
-        """Extracts table data from PDF invoices."""
+        """Extracts table data from PDF invoices with OCR fallback."""
         results = []
         try:
             with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
+                    # Try digital extraction first
                     tables = page.extract_tables()
-                    for table in tables:
-                        # Skip empty or small tables
-                        if not table or len(table) < 2: continue
-
-                        # Logic to find header row and map columns
-                        headers = [str(c).strip() for c in table[0] if c]
-                        for row in table[1:]:
-                            # Simple heuristic: Item Name is usually the longest text
-                            # Quantity and Price are numbers
-                            extracted = {'name': '', 'quantity': 0, 'price': 0, 'code': ''}
-
-                            for cell in row:
-                                if not cell: continue
-                                cell_str = str(cell).strip()
-
-                                # Is it a number?
-                                if re.match(r'^\d+(\.\d+)?$', cell_str):
-                                    num = float(cell_str)
-                                    if extracted['quantity'] == 0:
-                                        extracted['quantity'] = num
-                                    elif extracted['price'] == 0:
-                                        extracted['price'] = num
-                                elif len(cell_str) > 3:
-                                    if not extracted['name']:
-                                        extracted['name'] = cell_str
-                                    elif not extracted['code']:
-                                        extracted['code'] = cell_str
-
-                            if extracted['name'] and extracted['quantity'] > 0:
-                                results.append(extracted)
+                    if tables:
+                        for table in tables:
+                            if not table or len(table) < 2: continue
+                            results.extend(self._process_table_rows(table))
+                    else:
+                        # Fallback to OCR for scanned PDFs
+                        results.extend(self.extract_from_image(file_path))
             return results
         except Exception as e:
             print(f"PDF Extraction Error: {e}")
             return []
+
+    def extract_from_image(self, file_path: str) -> List[Dict]:
+        """OCR-based extraction for scans and images using PaddleOCR."""
+        try:
+            from paddleocr import PaddleOCR
+            # Initialize with Arabic/English support
+            ocr = PaddleOCR(use_angle_cls=True, lang='ar')
+            result = ocr.ocr(file_path, cls=True)
+
+            # Simplified heuristic for OCR results
+            extracted_text = []
+            for idx in range(len(result)):
+                res = result[idx]
+                for line in res:
+                    extracted_text.append(line[1][0])
+
+            # In a real "Beast-Mode" scenario, we'd use a LLM or structural analyzer here.
+            # For now, we return a list of discovered strings for the user to map.
+            return [{"name": txt, "quantity": 1, "price": 0.0, "code": ""} for txt in extracted_text if len(txt) > 5]
+        except Exception as e:
+            print(f"OCR Extraction Error: {e}")
+            return []
+
+    def _process_table_rows(self, table):
+        rows_data = []
+        for row in table[1:]:
+            extracted = {'name': '', 'quantity': 0, 'price': 0, 'code': ''}
+            for cell in row:
+                if not cell: continue
+                cell_str = str(cell).strip()
+                if re.match(r'^\d+(\.\d+)?$', cell_str):
+                    num = float(cell_str)
+                    if extracted['quantity'] == 0: extracted['quantity'] = num
+                    elif extracted['price'] == 0: extracted['price'] = num
+                elif len(cell_str) > 3:
+                    if not extracted['name']: extracted['name'] = cell_str
+                    elif not extracted['code']: extracted['code'] = cell_str
+            if extracted['name'] and extracted['quantity'] > 0:
+                rows_data.append(extracted)
+        return rows_data

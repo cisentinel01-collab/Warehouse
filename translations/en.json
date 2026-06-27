@@ -64,6 +64,7 @@
   "refresh_history": "Refresh History",
   "top_performance": "Performance Spotlight",
   "top_supplier": "Top Strategic Supplier",
+  "live_movement_feed": "Live Movement Feed",
   "view_analysis": "View Analysis",
   "phone": "Phone Number",
   "actions": "Actions",
@@ -72,5 +73,9 @@
   "total_business_volume": "Cumulative Trade Volume",
   "provided_items": "Procured Item Catalog",
   "edit": "Edit",
-  "delete": "Delete"
+  "delete": "Delete",
+  "generating_report": "Generating High-Density Report...",
+  "report_saved": "Report successfully saved to",
+  "report_failed": "Report generation failed. Check system logs.",
+  "error": "System Error"
 }

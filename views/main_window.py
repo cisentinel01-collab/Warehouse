@@ -85,11 +85,15 @@ class MainWindow(QMainWindow):
             app_logger.error(f"Expiry alarm check failed: {e}")
 
     def setup_ui(self):
+        from utils.translation_manager import tr_manager
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         layout = QHBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+
+        # Sidebar Position Logic
+        self.sidebar_pos = Qt.RightEdge if tr_manager.is_rtl else Qt.LeftEdge
 
         # Sidebar
         self.sidebar = QFrame()
@@ -100,7 +104,7 @@ class MainWindow(QMainWindow):
 
         # Logo/Brand
         from utils.translation_manager import tr, tr_manager
-        brand_label = QLabel("AMERICAN MARINE SERVICES FREEZONE")
+        brand_label = QLabel("AMS FREEZONE")
         brand_label.setStyleSheet("color: #d4af37; font-size: 24px; font-weight: bold; margin-bottom: 20px; padding: 10px;")
         brand_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(brand_label)
@@ -124,12 +128,18 @@ class MainWindow(QMainWindow):
         logout_btn.clicked.connect(self.handle_logout)
         sidebar_layout.addWidget(logout_btn)
 
-        layout.addWidget(self.sidebar)
-
         # Content Area
         content_container = QWidget()
         self.content_layout = QVBoxLayout(content_container)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Layout Ordering for Sidebar Flip
+        if tr_manager.is_rtl:
+            layout.addWidget(content_container)
+            layout.addWidget(self.sidebar)
+        else:
+            layout.addWidget(self.sidebar)
+            layout.addWidget(content_container)
 
         # Header
         header = QFrame()

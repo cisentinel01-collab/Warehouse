@@ -33,8 +33,8 @@ class LoginView(QWidget):
         logo_label.setAlignment(Qt.AlignCenter)
         container_layout.addWidget(logo_label)
 
-        title = QLabel("AMERICAN MARINE SERVICES FREEZONE")
-        title.setStyleSheet("font-size: 22px; font-weight: bold; color: #d4af37;")
+        title = QLabel("AMS FREEZONE")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #d4af37;")
         title.setAlignment(Qt.AlignCenter)
         container_layout.addWidget(title)
 

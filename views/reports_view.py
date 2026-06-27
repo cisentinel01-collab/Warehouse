@@ -1,11 +1,15 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-                             QPushButton, QLabel, QGridLayout, QMessageBox)
-from PySide6.QtCore import Qt
+                             QPushButton, QLabel, QGridLayout, QMessageBox, QProgressDialog)
+from PySide6.QtCore import Qt, QThreadPool
+import qtawesome as qta
+from workers.worker import Worker
+from utils.translation_manager import tr
 
 class ReportsView(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
+        self.threadpool = QThreadPool.globalInstance()
         self.setup_ui()
 
     def setup_ui(self):
@@ -28,53 +32,61 @@ class ReportsView(QWidget):
         group = QGroupBox(title)
         l = QVBoxLayout(group)
 
-        pdf_btn = QPushButton("تصدير PDF")
+        pdf_btn = QPushButton(f"PDF {tr('reports')}")
+        pdf_btn.setIcon(qta.icon("fa5s.file-pdf", color="#e74c3c"))
         pdf_btn.clicked.connect(pdf_func)
         l.addWidget(pdf_btn)
 
         if excel_func:
-            excel_btn = QPushButton("تصدير Excel")
+            excel_btn = QPushButton(f"Excel {tr('reports')}")
+            excel_btn.setIcon(qta.icon("fa5s.file-excel", color="#27ae60"))
             excel_btn.clicked.connect(excel_func)
             l.addWidget(excel_btn)
 
         grid.addWidget(group, r, c)
 
+    def _run_report_worker(self, func, *args, **kwargs):
+        progress = QProgressDialog(tr("generating_report"), tr("cancel"), 0, 0, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+
+        def on_finished(path):
+            progress.close()
+            if path:
+                QMessageBox.information(self, tr("add_success"), f"{tr('report_saved')}: {path}")
+            else:
+                QMessageBox.warning(self, tr("error"), tr("report_failed"))
+
+        worker = Worker(func, *args, **kwargs)
+        worker.signals.result.connect(on_finished)
+        self.threadpool.start(worker)
+
     def handle_inv_pdf(self):
-        path = self.controller.export_inventory_to_pdf(is_low_stock=False)
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_inventory_to_pdf, is_low_stock=False)
 
     def handle_inv_excel(self):
-        path = self.controller.export_inventory_to_excel(is_low_stock=False)
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_inventory_to_excel, is_low_stock=False)
 
     def handle_low_stock_pdf(self):
-        path = self.controller.export_inventory_to_pdf(is_low_stock=True)
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_inventory_to_pdf, is_low_stock=True)
 
     def handle_low_stock_excel(self):
-        path = self.controller.export_inventory_to_excel(is_low_stock=True)
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_inventory_to_excel, is_low_stock=True)
 
     def handle_in_pdf(self):
-        path = self.controller.export_movements_to_pdf("IN")
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_movements_to_pdf, "IN")
 
     def handle_in_excel(self):
-        path = self.controller.export_movements_to_excel("IN")
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_movements_to_excel, "IN")
 
     def handle_out_pdf(self):
-        path = self.controller.export_movements_to_pdf("OUT")
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_movements_to_pdf, "OUT")
 
     def handle_out_excel(self):
-        path = self.controller.export_movements_to_excel("OUT")
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_movements_to_excel, "OUT")
 
     def handle_audit_pdf(self):
-        path = self.controller.export_audit_to_pdf()
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_audit_to_pdf)
 
     def handle_expired_pdf(self):
-        path = self.controller.export_expiry_to_pdf(expired_only=True)
-        QMessageBox.information(self, "نجاح", f"تم الحفظ في {path}")
+        self._run_report_worker(self.controller.export_expiry_to_pdf, expired_only=True)

@@ -129,6 +129,7 @@ class Movement(Base):
     reference_no = Column(String(50), nullable=False, index=True)
     date = Column(DateTime, default=datetime.utcnow, index=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
+    supplier = relationship("Supplier")
     received_by = Column(String(100))
     issuing_entity = Column(String(100))
     receiver_name = Column(String(100))
@@ -137,6 +138,19 @@ class Movement(Base):
     discount_amount = Column(Float, default=0.0)
     subtotal = Column(Float, default=0.0)
     final_total = Column(Float, default=0.0)
+
+    items = relationship("MovementItem", back_populates="movement", cascade="all, delete-orphan")
+
+class MovementItem(Base):
+    __tablename__ = "movement_items"
+    id = Column(Integer, primary_key=True)
+    movement_id = Column(Integer, ForeignKey("movements.id"), nullable=False)
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    quantity = Column(Float, nullable=False)
+    price = Column(Float, default=0.0)
+
+    movement = relationship("Movement", back_populates="items")
+    item = relationship("Item")
 
 class Settings(Base):
     __tablename__ = "settings"

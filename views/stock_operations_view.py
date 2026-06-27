@@ -229,23 +229,40 @@ class StockOperationsView(QWidget):
         main_layout.addWidget(scroll)
 
     def handle_smart_import(self):
-        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog, QProgressDialog
         from services.import_service import ImportService
         from views.import_verification_dialog import ImportVerificationDialog
+        from workers.worker import Worker
+        from PySide6.QtCore import QThreadPool
 
         file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف الفاتورة", "", "All Files (*.xlsx *.pdf *.xls)")
         if not file_path: return
 
-        service = ImportService()
-        if file_path.endswith('.pdf'):
-            data = service.extract_from_pdf(file_path)
-        else:
-            data = service.extract_from_excel(file_path)
+        progress = QProgressDialog("جاري تحليل الملف بالذكاء الاصطناعي...", "إلغاء", 0, 0, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
 
-        if not data:
-            QMessageBox.warning(self, "تنبيه", "لم يتم العثور على بيانات في الملف أو تنسيق الملف غير مدعوم")
-            return
+        def run_extraction():
+            service = ImportService()
+            if file_path.endswith('.pdf'):
+                return service.extract_from_pdf(file_path)
+            else:
+                return service.extract_from_excel(file_path)
 
+        def on_finished(data):
+            progress.close()
+            if not data:
+                QMessageBox.warning(self, "تنبيه", "لم يتم العثور على بيانات في الملف أو تنسيق الملف غير مدعوم")
+                return
+
+            self.show_import_verification(data)
+
+        worker = Worker(run_extraction)
+        worker.signals.result.connect(on_finished)
+        QThreadPool.globalInstance().start(worker)
+
+    def show_import_verification(self, data):
+        from views.import_verification_dialog import ImportVerificationDialog
         dialog = ImportVerificationDialog(data, self)
         if dialog.exec():
             # Add confirmed items to list

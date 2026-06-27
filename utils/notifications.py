@@ -96,3 +96,10 @@ class NotificationManager:
     def info(parent, message):
         n = Notification(message, "fa5s.info-circle", "#1a2a6c", parent)
         n.show_notification()
+
+    @staticmethod
+    def warning(parent, title, message):
+        # Allow multi-param signature for consistency with Dashboard usage
+        full_msg = f"{title}: {message}" if title else message
+        n = Notification(full_msg, "fa5s.exclamation-triangle", "#f39c12", parent)
+        n.show_notification()

@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from database.session import Session
 from models.inventory import Supplier, Movement, MovementItem, Item
 from sqlalchemy import func
-from utils.translation_manager import tr
+from utils.translation_manager import tr, tr_manager
 
 class SupplierDetailsDialog(QDialog):
     def __init__(self, supplier_id, parent=None):
@@ -13,6 +13,7 @@ class SupplierDetailsDialog(QDialog):
         self.db = Session()
         self.setWindowTitle(tr("view_analysis"))
         self.resize(1000, 700)
+        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
         self.setup_ui()
         self.load_analysis()
 

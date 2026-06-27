@@ -92,9 +92,25 @@ class DashboardView(QWidget):
 
         layout.addLayout(charts_layout)
 
-        # Bottom Section: Alerts & Top Items
+        # Bottom Section: High-Density Analytics
         bottom_layout = QHBoxLayout()
         bottom_layout.setSpacing(30)
+
+        # Performance Spotlight (New Location)
+        performance_frame = QFrame()
+        performance_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
+        perf_vbox = QVBoxLayout(performance_frame)
+        perf_header = QLabel(tr("top_performance"))
+        perf_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
+        perf_vbox.addWidget(perf_header)
+
+        self.top_supplier_label = QLabel("N/A")
+        self.top_supplier_label.setStyleSheet("color: #ecf0f1; font-size: 15px; font-weight: bold;")
+        perf_vbox.addWidget(QLabel(tr("top_supplier") + ":"))
+        perf_vbox.addWidget(self.top_supplier_label)
+
+        perf_vbox.addStretch()
+        bottom_layout.addWidget(performance_frame, 1)
 
         # Alerts
         alerts_frame = QFrame()
@@ -124,21 +140,18 @@ class DashboardView(QWidget):
         top_vbox.addStretch()
         bottom_layout.addWidget(top_items_frame, 1)
 
-        # Performance Spotlight
-        performance_frame = QFrame()
-        performance_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
-        perf_vbox = QVBoxLayout(performance_frame)
-        perf_header = QLabel(tr("top_performance"))
-        perf_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
-        perf_vbox.addWidget(perf_header)
+        # Live Feed (Level 7)
+        live_frame = QFrame()
+        live_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
+        live_vbox = QVBoxLayout(live_frame)
+        live_header = QLabel(tr("live_movement_feed"))
+        live_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
+        live_vbox.addWidget(live_header)
 
-        self.top_supplier_label = QLabel("N/A")
-        self.top_supplier_label.setStyleSheet("color: #ecf0f1; font-size: 15px; font-weight: bold;")
-        perf_vbox.addWidget(QLabel(tr("top_supplier") + ":"))
-        perf_vbox.addWidget(self.top_supplier_label)
-
-        perf_vbox.addStretch()
-        bottom_layout.addWidget(performance_frame, 1)
+        self.live_feed_list = QVBoxLayout()
+        live_vbox.addLayout(self.live_feed_list)
+        live_vbox.addStretch()
+        bottom_layout.addWidget(live_frame, 1.5)
 
         layout.addLayout(bottom_layout)
 
@@ -258,6 +271,18 @@ class DashboardView(QWidget):
                 item_row = QLabel(f"• {item['name']} ({int(item['value'])} {unit_txt})")
                 item_row.setStyleSheet("color: #ecf0f1; font-size: 13px; padding: 2px;")
                 self.top_items_list.addWidget(item_row)
+
+            # Update Live Feed
+            while self.live_feed_list.count():
+                child = self.live_feed_list.takeAt(0)
+                if child.widget(): child.widget().deleteLater()
+
+            for m in stats.get('live_feed', []):
+                color = "#27ae60" if m['type'] == 'IN' else "#e74c3c"
+                m_type_txt = tr("inbound") if m['type'] == 'IN' else tr("outbound")
+                feed_row = QLabel(f"[{m['time']}] {m_type_txt}: {m['ref']} ({int(m['qty'])} items)")
+                feed_row.setStyleSheet(f"color: {color}; font-size: 12px; font-family: 'Consolas';")
+                self.live_feed_list.addWidget(feed_row)
 
             # Update Performance Spotlight
             top_s = stats.get('top_supplier', {})

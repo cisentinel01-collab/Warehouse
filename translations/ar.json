@@ -64,6 +64,7 @@
   "refresh_history": "تحديث السجل",
   "top_performance": "نظرة على الأداء",
   "top_supplier": "أكثر الموردين تعاملاً",
+  "live_movement_feed": "بث مباشر للحركات",
   "view_analysis": "تحليل البيانات",
   "phone": "الهاتف",
   "actions": "إجراءات",
@@ -72,5 +73,9 @@
   "total_business_volume": "إجمالي حجم التعاملات",
   "provided_items": "الأصناف الموردة",
   "edit": "تعديل",
-  "delete": "حذف"
+  "delete": "حذف",
+  "generating_report": "جاري إنشاء التقرير المتقدم...",
+  "report_saved": "تم حفظ التقرير في",
+  "report_failed": "فشل إنشاء التقرير. راجع سجلات النظام.",
+  "error": "خطأ في النظام"
 }
