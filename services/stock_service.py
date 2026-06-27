@@ -145,7 +145,7 @@ class StockService:
 
     def generate_invoice_pdf(self, movement_id):
         from reportlab.lib.pagesizes import A4
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib import colors
         from models.inventory import Movement, MovementItem, Settings
@@ -159,16 +159,10 @@ class StockService:
         filename = f"reports/invoice_{m.reference_no}.pdf"
         if not os.path.exists("reports"): os.makedirs("reports")
 
-        doc = SimpleDocTemplate(filename, pagesize=A4)
+        doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
         elements = []
         styles = getSampleStyleSheet()
         is_ar = tr_manager.current_language == 'ar'
-
-        # Logo at the Top
-        logo_path = "logo/logo.png"
-        if os.path.exists(logo_path):
-            from reportlab.platypus import Image as RLImage
-            elements.append(RLImage(logo_path, width=120, height=60))
 
         def fmt(txt):
             if not txt: return ""
@@ -177,8 +171,29 @@ class StockService:
             from bidi.algorithm import get_display
             return get_display(arabic_reshaper.reshape(str(txt)))
 
-        elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
-        elements.append(Paragraph(fmt(f"{tr('invoice')}: {m.reference_no}"), styles['Heading2']))
+        # Premium Header with Logo and Company Info
+        logo_path = "logo/logo.png"
+        header_data = []
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=120, height=60)
+            company_info = [
+                [Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title'])],
+                [Paragraph(fmt(settings.address or ""), styles['Normal'])],
+                [Paragraph(fmt(f"{tr('phone')}: {settings.phone or ''}"), styles['Normal'])]
+            ]
+            comp_table = Table(company_info)
+            if is_ar:
+                header_data = [[comp_table, logo]]
+            else:
+                header_data = [[logo, comp_table]]
+
+        if header_data:
+            h_table = Table(header_data, colWidths=[350, 150] if not is_ar else [150, 350])
+            h_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+            elements.append(h_table)
+
+        elements.append(Spacer(1, 25))
+        elements.append(Paragraph(fmt(f"{tr('invoice').upper()}: {m.reference_no}"), styles['Heading2']))
         elements.append(Paragraph(fmt(f"{tr('date')}: {m.date.strftime('%Y-%m-%d %H:%M')}"), styles['Normal']))
 
         # Party info
@@ -188,27 +203,45 @@ class StockService:
 
         elements.append(Spacer(1, 20))
 
-        # Items
+        # Premium Line Items Table
         m_items = self.db.query(MovementItem).filter(MovementItem.movement_id == movement_id).all()
-        data = [[fmt(tr("item_code")), fmt(tr("item_name")), fmt(tr("quantity")), fmt(tr("price"))]]
-        if is_ar: data[0].reverse()
+        headers = [tr("item_code"), tr("item_name"), tr("quantity"), tr("unit_price"), tr("total")]
+        if is_ar: headers.reverse()
 
+        data = [[fmt(h) for h in headers]]
         for mi in m_items:
-            row = [mi.item.code, mi.item.name, str(mi.quantity), f"{mi.price:,.2f}"]
+            line_total = mi.quantity * mi.price
+            row = [mi.item.code, mi.item.name, str(mi.quantity), f"{mi.price:,.2f}", f"{line_total:,.2f}"]
             if is_ar: row.reverse()
             data.append([fmt(cell) for cell in row])
 
-        t = Table(data)
+        t = Table(data, repeatRows=1, colWidths=[90, 200, 80, 80, 80])
         t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor('#f9f9f9')])
         ]))
         elements.append(t)
 
-        elements.append(Spacer(1, 20))
-        elements.append(Paragraph(fmt(f"{tr('total_value')}: {m.final_total:,.2f}"), styles['Heading3']))
+        # Summary Section
+        elements.append(Spacer(1, 30))
+        summary_data = [
+            [fmt(tr("subtotal") + ":"), f"{m.subtotal:,.2f}"],
+            [fmt(tr("discount_percent") + f" ({m.discount_percent}%):"), f"{m.discount_amount:,.2f}"],
+            [fmt(tr("total_value").upper() + ":"), Paragraph(f"<b>{m.final_total:,.2f}</b>", styles['Heading3'])]
+        ]
+        if is_ar:
+            for row in summary_data: row.reverse()
+
+        sum_table = Table(summary_data, colWidths=[350, 150] if not is_ar else [150, 350])
+        sum_table.setStyle(TableStyle([
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT' if not is_ar else 'LEFT'),
+            ('LINEABOVE', (0, 2), (-1, 2), 1, colors.black),
+        ]))
+        elements.append(sum_table)
 
         doc.build(elements)
         return filename

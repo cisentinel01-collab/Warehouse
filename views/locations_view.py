@@ -14,17 +14,20 @@ class LocationsView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
+        from utils.translation_manager import tr, tr_manager
+        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Toolbar
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("بحث عن موقع...")
+        self.search_input.setPlaceholderText(tr("search"))
         self.search_input.textChanged.connect(self.refresh)
         toolbar.addWidget(self.search_input)
 
-        add_btn = QPushButton("إضافة موقع جديد")
+        add_btn = QPushButton(tr("add_location"))
         add_btn.setObjectName("PrimaryButton")
         add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
         add_btn.clicked.connect(self.show_add_dialog)
@@ -35,7 +38,7 @@ class LocationsView(QWidget):
         # Table
         self.table = QTableWidget()
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["المعرف", "اسم الموقع", "الوصف", "إجراءات"])
+        self.table.setHorizontalHeaderLabels([tr("id"), tr("location_name"), tr("description"), tr("actions")])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.table)
 
@@ -81,17 +84,20 @@ class LocationsView(QWidget):
 
     def show_add_dialog(self):
         from PySide6.QtWidgets import QDialog, QFormLayout
+        from utils.translation_manager import tr, tr_manager
         dialog = QDialog(self)
-        dialog.setWindowTitle("إضافة موقع جديد")
+        dialog.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+        dialog.setWindowTitle(tr("add_location"))
         d_layout = QFormLayout(dialog)
+        d_layout.setLabelAlignment(Qt.AlignRight if tr_manager.is_rtl else Qt.AlignLeft)
 
         name_input = QLineEdit()
         desc_input = QLineEdit()
 
-        d_layout.addRow("اسم الموقع:", name_input)
-        d_layout.addRow("الوصف:", desc_input)
+        d_layout.addRow(tr("location_name") + ":", name_input)
+        d_layout.addRow(tr("description") + ":", desc_input)
 
-        save_btn = QPushButton("حفظ")
+        save_btn = QPushButton(tr("save"))
         save_btn.setObjectName("GoldButton")
         save_btn.clicked.connect(lambda: self.save_location(dialog, name_input.text(), desc_input.text()))
         d_layout.addRow(save_btn)

@@ -174,11 +174,17 @@ class MainWindow(QMainWindow):
         if not AuthManager.has_permission(id):
             return
 
+        from utils.translation_manager import tr_manager
         btn = QPushButton(text)
         btn.setIcon(qta.icon(icon_name, color="white"))
-        btn.setIconSize(QSize(20, 20))
+        btn.setIconSize(QSize(22, 22))
         btn.setCheckable(True)
         btn.setAutoExclusive(True)
+
+        # Premium Alignment: Icon on right for Arabic, left for English
+        btn.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+        btn.setStyleSheet("text-align: left; padding: 12px 20px;" if not tr_manager.is_rtl else "text-align: right; padding: 12px 20px;")
+
         btn.clicked.connect(lambda: self.switch_page(id))
         self.sidebar.layout().addWidget(btn)
         self.nav_buttons[id] = btn

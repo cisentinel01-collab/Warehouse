@@ -27,27 +27,91 @@ def seed_data():
             )
             db_session.add(new_user)
 
-    # 2. Locations
-    locations = ["مخزن رئيسي", "رف A1", "رف A2"]
-    for l in locations:
-        if not db_manager.execute_query("SELECT id FROM locations WHERE name = %s", (l,)):
-            new_loc = Location(name=l, description="موقع تخزين")
-            db_session.add(new_loc)
+    # 2. Scale Up Locations (100 Locations)
+    existing_locs = db_manager.execute_query("SELECT name FROM locations")
+    existing_loc_names = [r['name'] for r in existing_locs]
 
-    # 3. Suppliers
-    suppliers = [
-        {"name": "شركة الملاحة العربية", "phone": "0123456789", "email": "info@arabmarine.com", "address": "الإسكندرية"},
-        {"name": "مورد الخليج للخدمات", "phone": "9876543210", "email": "sales@gulfserv.com", "address": "دبي"}
-    ]
-    for s in suppliers:
-        if not db_manager.execute_query("SELECT id FROM suppliers WHERE name = %s", (s['name'],)):
-            new_sup = Supplier(**s)
-            db_session.add(new_sup)
+    for i in range(1, 101):
+        name = f"Location-Zone-{i:03d}"
+        if name not in existing_loc_names:
+            db_session.add(Location(name=name, description=f"Automated Enterprise Bin {i}"))
+
+    # 3. Scale Up Suppliers (70 Suppliers)
+    existing_sups = db_manager.execute_query("SELECT name FROM suppliers")
+    existing_sup_names = [r['name'] for r in existing_sups]
+
+    for i in range(1, 71):
+        name = f"Strategic-Supplier-{i:03d}"
+        if name not in existing_sup_names:
+            db_session.add(Supplier(
+                name=name,
+                phone=f"050-900-{i:03d}",
+                email=f"vendor{i}@enterprise.com",
+                address=f"Industrial Area Block {i}"
+            ))
+
+    db_session.commit()
+
+    # 4. Scale Up Items (600 Items)
+    existing_items = db_manager.execute_query("SELECT code FROM items")
+    existing_codes = [r['code'] for r in existing_items]
+
+    for i in range(1, 601):
+        code = f"SKU-AMS-{i:04d}"
+        if code not in existing_codes:
+            db_session.add(Item(
+                code=code,
+                name=f"High-Performance Component {i}",
+                category="Hardware" if i % 2 == 0 else "Electronic",
+                unit="PCS",
+                min_stock=20.0,
+                current_stock=100.0,
+                active=True
+            ))
+
+    db_session.commit()
+
+    # 5. Generate Sample Movements (Invoices)
+    from models.inventory import Movement, MovementItem
+    import random
+    from datetime import timedelta
+
+    all_items = db_session.query(Item).all()
+    all_suppliers = db_session.query(Supplier).all()
+
+    if all_items and all_suppliers:
+        for i in range(1, 11):
+            m_type = 'IN' if i % 2 == 0 else 'OUT'
+            ref = f"{m_type}-SEED-{i:03d}"
+
+            m = Movement(
+                type=m_type,
+                reference_no=ref,
+                date=datetime.now() - timedelta(days=random.randint(0, 30)),
+                supplier_id=random.choice(all_suppliers).id if m_type == 'IN' else None,
+                issuing_entity="SEED-DEPT" if m_type == 'OUT' else None,
+                subtotal=0,
+                final_total=0
+            )
+            db_session.add(m)
+            db_session.flush()
+
+            total = 0
+            for _ in range(random.randint(1, 5)):
+                it = random.choice(all_items)
+                qty = random.randint(1, 20)
+                price = random.uniform(10, 500)
+                mi = MovementItem(movement_id=m.id, item_id=it.id, quantity=qty, price=price)
+                db_session.add(mi)
+                total += (qty * price)
+
+            m.subtotal = total
+            m.final_total = total
 
     db_session.commit()
     db_session.close()
 
-    print("Data seeding completed successfully with 2 roles.")
+    print("Data seeding completed: 2 Users, 100 Locations, 70 Suppliers, 600 Items, 10 Movements.")
 
 if __name__ == "__main__":
     seed_data()

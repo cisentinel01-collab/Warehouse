@@ -18,11 +18,9 @@ class ReportService:
             filename = f"reports/inventory_{os.getpid()}.pdf"
             if not os.path.exists("reports"): os.makedirs("reports")
 
-            doc = SimpleDocTemplate(filename, pagesize=A4)
+            doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
             elements = []
             styles = getSampleStyleSheet()
-
-            # RTL/LTR Logic for PDF
             is_ar = tr_manager.current_language == 'ar'
 
             def fmt(txt):
@@ -33,37 +31,55 @@ class ReportService:
                 reshaped = arabic_reshaper.reshape(str(txt))
                 return get_display(reshaped)
 
-            # Header
-            # Logo Handling
+            # Modern Header Table
             logo_path = "logo/logo.png"
+            header_data = []
             if os.path.exists(logo_path):
-                img = Image(logo_path, width=100, height=50)
-                elements.append(img)
+                logo = Image(logo_path, width=120, height=60)
+                company_info = [
+                    [Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title'])],
+                    [Paragraph(fmt(settings.address or ""), styles['Normal'])],
+                    [Paragraph(fmt(f"{tr('phone')}: {settings.phone or ''}"), styles['Normal'])]
+                ]
+                comp_table = Table(company_info)
+                if is_ar:
+                    header_data = [[comp_table, logo]]
+                else:
+                    header_data = [[logo, comp_table]]
 
-            elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
-            elements.append(Paragraph(fmt(tr("inventory_report")), styles['Heading2']))
+            if header_data:
+                h_table = Table(header_data, colWidths=[350, 150] if not is_ar else [150, 350])
+                h_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+                elements.append(h_table)
+
+            elements.append(Spacer(1, 25))
+            elements.append(Paragraph(fmt(tr("inventory_report").upper()), styles['Heading2']))
             elements.append(Paragraph(fmt(f"{tr('date')}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"), styles['Normal']))
-            elements.append(Spacer(1, 12))
+            elements.append(Spacer(1, 20))
 
-            # Data
+            # Pro-Level Data Table
             items = self.db.query(Item).filter(Item.active == True).all()
-            headers = [tr("item_code"), tr("item_name"), tr("current_stock"), tr("unit")]
+            headers = [tr("item_code"), tr("item_name"), tr("category"), tr("current_stock"), tr("unit")]
             if is_ar: headers.reverse()
 
             data = [[fmt(h) for h in headers]]
             for i in items:
-                row = [i.code, i.name, str(i.current_stock), i.uom_id if hasattr(i, 'uom_id') else ""]
+                row = [i.code, i.name, i.category or "-", str(i.current_stock), i.unit or "-"]
                 if is_ar: row.reverse()
                 data.append([fmt(cell) for cell in row])
 
             if len(data) > 1:
-                t = Table(data)
+                t = Table(data, repeatRows=1, colWidths=[100, 180, 100, 80, 70])
                 t.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'), # For Arabic we'd need a TrueType font like Cairo
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f2f3f4')),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor('#ecf0f1')])
                 ]))
                 elements.append(t)
             else:
