@@ -87,6 +87,10 @@ class MainWindow(QMainWindow):
     def setup_ui(self):
         from utils.translation_manager import tr_manager
         main_widget = self.centralWidget()
+        if not main_widget:
+            main_widget = QWidget()
+            self.setCentralWidget(main_widget)
+
         # Clear existing layout if any
         if main_widget.layout():
             import sip
