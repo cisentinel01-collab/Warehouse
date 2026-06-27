@@ -99,8 +99,8 @@ class MainWindow(QMainWindow):
         sidebar_layout.setSpacing(5)
 
         # Logo/Brand
-        from utils.translation_manager import tr
-        brand_label = QLabel("AMS WMS")
+        from utils.translation_manager import tr, tr_manager
+        brand_label = QLabel("AMERICAN MARINE SERVICES FREEZONE")
         brand_label.setStyleSheet("color: #d4af37; font-size: 24px; font-weight: bold; margin-bottom: 20px; padding: 10px;")
         brand_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(brand_label)
@@ -203,6 +203,12 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "خطأ في التنقل", f"فشل الانتقال إلى هذه الصفحة: {str(e)}")
 
     def on_language_changed(self, lang):
+        # Apply Direction first
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import Qt
+        app = QApplication.instance()
+        app.setLayoutDirection(Qt.RightToLeft if lang == 'ar' else Qt.LeftToRight)
+
         # Full UI Refresh
         self.setup_ui()
         # Re-attach views to the new stack

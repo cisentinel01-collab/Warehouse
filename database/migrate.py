@@ -35,6 +35,9 @@ def migrate():
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='items' AND column_name='description') THEN
                         ALTER TABLE items ADD COLUMN description TEXT;
                     END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='items' AND column_name='unit') THEN
+                        ALTER TABLE items ADD COLUMN unit TEXT;
+                    END IF;
                 END $$;
                 """
                 conn.execute(text(sql))

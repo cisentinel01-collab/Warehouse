@@ -191,6 +191,7 @@ class ItemDialog(QDialog):
 
         self.location_combo = QComboBox()
         from models.inventory import Location
+        from database.session import Session
         db = Session()
         locations = db.query(Location).filter(Location.active == True).all()
         for loc in locations:

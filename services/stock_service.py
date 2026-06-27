@@ -144,5 +144,59 @@ class StockService:
         return self.movement_repo.get_history(**kwargs)
 
     def generate_invoice_pdf(self, movement_id):
-        # Implementation of PDF generation for a movement
-        return f"reports/movement_{movement_id}.pdf"
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
+        from models.inventory import Movement, MovementItem, Settings
+        from utils.translation_manager import tr, tr_manager
+        import os
+
+        m = self.db.query(Movement).filter(Movement.id == movement_id).first()
+        if not m: return ""
+
+        settings = self.db.query(Settings).first() or Settings()
+        filename = f"reports/invoice_{m.reference_no}.pdf"
+        if not os.path.exists("reports"): os.makedirs("reports")
+
+        doc = SimpleDocTemplate(filename, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
+        is_ar = tr_manager.current_language == 'ar'
+
+        def fmt(txt):
+            if not txt: return ""
+            if not is_ar: return str(txt)
+            import arabic_reshaper
+            from bidi.algorithm import get_display
+            return get_display(arabic_reshaper.reshape(str(txt)))
+
+        elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
+        elements.append(Paragraph(fmt(f"{tr('invoice')}: {m.reference_no}"), styles['Heading2']))
+        elements.append(Paragraph(fmt(f"{tr('date')}: {m.date}"), styles['Normal']))
+        elements.append(Spacer(1, 12))
+
+        # Items
+        m_items = self.db.query(MovementItem).filter(MovementItem.movement_id == movement_id).all()
+        data = [[fmt(tr("item_code")), fmt(tr("item_name")), fmt(tr("quantity")), fmt(tr("price"))]]
+        if is_ar: data[0].reverse()
+
+        for mi in m_items:
+            row = [mi.item.code, mi.item.name, str(mi.quantity), f"{mi.price:,.2f}"]
+            if is_ar: row.reverse()
+            data.append([fmt(cell) for cell in row])
+
+        t = Table(data)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(t)
+
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph(fmt(f"{tr('total_value')}: {m.final_total:,.2f}"), styles['Heading3']))
+
+        doc.build(elements)
+        return filename

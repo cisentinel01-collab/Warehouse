@@ -35,6 +35,8 @@
   "permission_denied": "محاولة وصول غير مصرح بها",
   "execute_operation": "تنفيذ عملية",
   "history": "السجل",
+  "invoice": "فاتورة",
+  "date": "التاريخ",
   "total_items": "إجمالي الأصناف",
   "expiring_soon": "أصناف قاربت الانتهاء",
   "low_stock_alert": "يوجد أصناف تحت حد الطلب",
@@ -59,5 +61,16 @@
   "system_status_ok": "النظام يعمل بكفاءة عالية.",
   "top_moving_items": "أكثر الأصناف حركة (30 يوم)",
   "aging_items": "أصناف راكدة (90 يوم+)",
-  "refresh_history": "تحديث السجل"
+  "refresh_history": "تحديث السجل",
+  "top_performance": "نظرة على الأداء",
+  "top_supplier": "أكثر الموردين تعاملاً",
+  "view_analysis": "تحليل البيانات",
+  "phone": "الهاتف",
+  "actions": "إجراءات",
+  "first_transaction": "أول تعامل",
+  "last_transaction": "آخر تعامل",
+  "total_business_volume": "إجمالي حجم التعاملات",
+  "provided_items": "الأصناف الموردة",
+  "edit": "تعديل",
+  "delete": "حذف"
 }

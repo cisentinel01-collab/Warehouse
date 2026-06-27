@@ -46,18 +46,28 @@ class DashboardService:
             ), {"d": day}).scalar() or 0
             trends.append({"date": day.strftime("%m/%d"), "in": float(in_qty), "out": float(out_qty)})
 
-        # 3. Analytics Widgets
-        # Top Moving Items (Last 30 days)
+        # 3. Beast Mode Analytics (Level 6)
+        # Top Moving Items (Last 30 days - By Volume)
         last_month = datetime.now() - timedelta(days=30)
-        top_items = self.db.execute(text("""
+        top_items_res = self.db.execute(text("""
             SELECT i.name, SUM(mi.quantity) as total
             FROM movement_items mi
             JOIN items i ON mi.item_id = i.id
             JOIN movements m ON mi.movement_id = m.id
-            WHERE m.date >= :lm
+            WHERE m.date >= :lm AND m.type = 'OUT'
             GROUP BY i.name ORDER BY total DESC LIMIT 8
         """), {"lm": last_month}).fetchall()
-        top_moving = [{"name": r[0], "value": float(r[1])} for r in top_items]
+        top_moving = [{"name": r[0], "value": float(r[1])} for r in top_items_res]
+
+        # Top Supplier (Highest total purchase value)
+        top_supplier_res = self.db.execute(text("""
+            SELECT s.name, SUM(m.final_total) as val
+            FROM movements m
+            JOIN suppliers s ON m.supplier_id = s.id
+            WHERE m.type = 'IN'
+            GROUP BY s.name ORDER BY val DESC LIMIT 1
+        """)).first()
+        top_supplier = {"name": top_supplier_res[0], "value": float(top_supplier_res[1])} if top_supplier_res else {"name": "N/A", "value": 0}
 
         # Inventory Aging (Items not moved in 90 days)
         ninety_days_ago = datetime.now() - timedelta(days=90)
@@ -81,6 +91,7 @@ class DashboardService:
             "total_value": float(total_value),
             "trends": trends,
             "top_moving": top_moving,
+            "top_supplier": top_supplier,
             "category_dist": category_dist,
             "aging_items": int(aging_count)
         }

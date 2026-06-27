@@ -124,6 +124,22 @@ class DashboardView(QWidget):
         top_vbox.addStretch()
         bottom_layout.addWidget(top_items_frame, 1)
 
+        # Performance Spotlight
+        performance_frame = QFrame()
+        performance_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
+        perf_vbox = QVBoxLayout(performance_frame)
+        perf_header = QLabel(tr("top_performance"))
+        perf_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
+        perf_vbox.addWidget(perf_header)
+
+        self.top_supplier_label = QLabel("N/A")
+        self.top_supplier_label.setStyleSheet("color: #ecf0f1; font-size: 15px; font-weight: bold;")
+        perf_vbox.addWidget(QLabel(tr("top_supplier") + ":"))
+        perf_vbox.addWidget(self.top_supplier_label)
+
+        perf_vbox.addStretch()
+        bottom_layout.addWidget(performance_frame, 1)
+
         layout.addLayout(bottom_layout)
 
         layout.addStretch()
@@ -225,6 +241,9 @@ class DashboardView(QWidget):
             if alert_text:
                 self.alerts_label.setText("\n".join(alert_text))
                 self.alerts_label.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 16px;")
+                # Push Toast Notification
+                from utils.notifications import NotificationManager
+                NotificationManager.warning(self.window(), tr("smart_alerts"), "\n".join(alert_text))
             else:
                 self.alerts_label.setText(tr("system_status_ok"))
                 self.alerts_label.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 16px;")
@@ -235,9 +254,14 @@ class DashboardView(QWidget):
                 if child.widget(): child.widget().deleteLater()
 
             for item in stats.get('top_moving', []):
-                item_row = QLabel(f"• {item['name']} ({int(item['value'])} units)")
+                unit_txt = tr("unit") if tr_manager.current_language == 'ar' else "units"
+                item_row = QLabel(f"• {item['name']} ({int(item['value'])} {unit_txt})")
                 item_row.setStyleSheet("color: #ecf0f1; font-size: 13px; padding: 2px;")
                 self.top_items_list.addWidget(item_row)
+
+            # Update Performance Spotlight
+            top_s = stats.get('top_supplier', {})
+            self.top_supplier_label.setText(f"{top_s.get('name', 'N/A')} (${top_s.get('value', 0):,.2f})")
 
         except Exception as e:
             from app_logging.app_logger import app_logger

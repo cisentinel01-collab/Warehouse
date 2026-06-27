@@ -35,6 +35,8 @@
   "permission_denied": "Unauthorized Access Attempt",
   "execute_operation": "Execute Operation",
   "history": "Transaction History",
+  "invoice": "Invoice",
+  "date": "Date",
   "total_items": "Total Inventory Items",
   "expiring_soon": "Expiring Batches",
   "low_stock_alert": "Items below safety threshold",
@@ -59,5 +61,16 @@
   "system_status_ok": "System operating at peak efficiency.",
   "top_moving_items": "Top Moving Items (30D)",
   "aging_items": "Stagnant Inventory (90D+)",
-  "refresh_history": "Refresh History"
+  "refresh_history": "Refresh History",
+  "top_performance": "Performance Spotlight",
+  "top_supplier": "Top Strategic Supplier",
+  "view_analysis": "View Analysis",
+  "phone": "Phone Number",
+  "actions": "Actions",
+  "first_transaction": "Initial Interaction",
+  "last_transaction": "Latest Interaction",
+  "total_business_volume": "Cumulative Trade Volume",
+  "provided_items": "Procured Item Catalog",
+  "edit": "Edit",
+  "delete": "Delete"
 }

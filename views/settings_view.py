@@ -82,10 +82,8 @@ class SettingsView(QWidget):
 
             from PySide6.QtWidgets import QApplication, QMessageBox
             from PySide6.QtCore import Qt
-            app = QApplication.instance()
-            app.setLayoutDirection(Qt.RightToLeft if new_lang == 'ar' else Qt.LeftToRight)
 
-            # Emit signal to all views
+            # Emit signal first to trigger layout flipping
             lang_signal.changed.emit(new_lang)
 
             QMessageBox.information(self, "نجاح / Success", "تم تغيير اللغة بنجاح وتطبيقها على كافة الواجهات.\nLanguage changed and applied to all views.")

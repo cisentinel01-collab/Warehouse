@@ -60,11 +60,87 @@ class SuppliersView(QWidget):
         self.threadpool.start(worker)
 
     def on_data_loaded(self, suppliers):
+        from utils.translation_manager import tr
         data = [
-            {"id": s.id, "name": s.name, "phone": s.phone, "email": s.email, "address": s.address}
+            {
+                "id": s.id, "name": s.name, "phone": s.phone, "email": s.email, "address": s.address,
+                "actions": tr("view_analysis")
+            }
             for s in suppliers
         ]
         self.model.update_data(data)
+
+    def setup_ui(self):
+        from utils.translation_manager import tr
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Toolbar
+        toolbar = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText(tr("search"))
+        self.search_input.textChanged.connect(self.handle_search)
+        toolbar.addWidget(self.search_input)
+
+        add_btn = QPushButton(tr("suppliers"))
+        add_btn.setObjectName("PrimaryButton")
+        add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
+        if not AuthManager.has_permission('suppliers', 'add'):
+            add_btn.setEnabled(False)
+
+        add_btn.clicked.connect(self.show_add_dialog)
+        toolbar.addWidget(add_btn)
+
+        layout.addLayout(toolbar)
+
+        # Table
+        self.view = QTableView()
+        self.view.setEditTriggers(QTableView.NoEditTriggers)
+        self.view.setSelectionBehavior(QTableView.SelectRows)
+        self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.view.customContextMenuRequested.connect(self.show_context_menu)
+        self.view.doubleClicked.connect(self.handle_analysis)
+        layout.addWidget(self.view)
+
+        self.headers = ["name", "phone", "email", "address", "actions"]
+        self.translated_headers = [tr("item_name"), tr("phone"), "Email", tr("address"), tr("actions")]
+        self.model = EnterpriseTableModel([], self.headers, self.translated_headers)
+        self.view.setModel(self.model)
+
+        self.refresh()
+
+    def show_context_menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+        from utils.translation_manager import tr
+        index = self.view.indexAt(pos)
+        if not index.isValid(): return
+
+        menu = QMenu(self)
+        analysis_act = menu.addAction(qta.icon("fa5s.chart-bar"), tr("view_analysis"))
+        edit_act = menu.addAction(qta.icon("fa5s.edit"), tr("edit"))
+        delete_act = menu.addAction(qta.icon("fa5s.trash-alt"), tr("delete"))
+
+        action = menu.exec(self.view.viewport().mapToGlobal(pos))
+        if action == analysis_act:
+            self.handle_analysis(index)
+        elif action == edit_act:
+            self.handle_edit(index)
+        elif action == delete_act:
+            s_id = self.model._data[index.row()].get("id")
+            self.handle_delete(s_id)
+
+    def handle_analysis(self, index):
+        if not index.isValid(): return
+        s_id = self.model._data[index.row()].get("id")
+        if s_id:
+            from views.supplier_details_dialog import SupplierDetailsDialog
+            dialog = SupplierDetailsDialog(s_id, self)
+            dialog.exec()
+
+    def handle_edit(self, index):
+        # Implementation of edit logic
+        pass
 
     def handle_search(self):
         term = self.search_input.text()
