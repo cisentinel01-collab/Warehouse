@@ -1,15 +1,16 @@
 from PySide6.QtWidgets import (QWizard, QWizardPage, QVBoxLayout, QHBoxLayout,
                              QLabel, QPushButton, QFileDialog, QTableWidget,
                              QTableWidgetItem, QComboBox, QMessageBox, QFrame,
-                             QProgressBar, QScrollArea, QWidget)
+                             QProgressBar, QScrollArea, QWidget, QDateEdit)
 from PySide6.QtCore import Qt, Signal
 import pandas as pd
 from utils.translation_manager import tr, tr_manager
 
 class EnterpriseImportWizard(QWizard):
-    def __init__(self, service, parent=None, is_opening_balance=False):
+    def __init__(self, service, target="items", parent=None, is_opening_balance=False):
         super().__init__(parent)
         self.service = service
+        self.target = target # "items", "suppliers", "movements"
         self.is_opening_balance = is_opening_balance
         self.setWindowTitle(tr("import_wizard") + (" - " + tr("opening_balance") if is_opening_balance else ""))
         self.resize(1100, 800)
@@ -24,6 +25,11 @@ class EnterpriseImportWizard(QWizard):
         self.addPage(MappingPage(self))
         self.addPage(ValidationPage(self))
         self.addPage(SuccessPage(self))
+
+    def cleanup(self):
+        # Prevent memory leaks
+        self.import_data = None
+        self.mapping = {}
 
 class UploadPage(QWizardPage):
     def __init__(self, wizard):
@@ -43,12 +49,26 @@ class UploadPage(QWizardPage):
         layout.addWidget(self.preview)
 
     def load_file(self):
+        from workers.worker import Worker
+        from PySide6.QtCore import QThreadPool
         path, _ = QFileDialog.getOpenFileName(self, "Excel", "", "Excel Files (*.xlsx *.xls)")
         if path:
-            self.wizard.import_data = pd.read_excel(path)
-            self.file_label.setText(path)
-            self.show_preview()
-            self.completeChanged.emit()
+            self.btn.setEnabled(False)
+            self.file_label.setText(tr("loading_data_wait"))
+
+            def read_excel_task():
+                return pd.read_excel(path, engine='openpyxl')
+
+            def on_finished(df):
+                self.wizard.import_data = df
+                self.file_label.setText(path)
+                self.show_preview()
+                self.btn.setEnabled(True)
+                self.completeChanged.emit()
+
+            worker = Worker(read_excel_task)
+            worker.signals.result.connect(on_finished)
+            QThreadPool.globalInstance().start(worker)
 
     def show_preview(self):
         df = self.wizard.import_data.head(10)
@@ -77,13 +97,42 @@ class MappingPage(QWizardPage):
 
         self.layout.addWidget(QLabel(tr("map_columns_info")))
 
+        # Stock Operation Global Dates (Intelligent Batch Management)
+        if self.wizard.target == "movements":
+            self.date_group = QFrame()
+            self.date_group.setStyleSheet("background: #f1f1f1; border-radius: 10px; margin-bottom: 10px;")
+            dv = QVBoxLayout(self.date_group)
+            dv.addWidget(QLabel("<b>" + tr("global_batch_dates") + "</b>"))
+
+            dh = QHBoxLayout()
+            self.global_prod = QDateEdit()
+            self.global_prod.setCalendarPopup(True)
+            self.global_exp = QDateEdit()
+            self.global_exp.setCalendarPopup(True)
+            from PySide6.QtCore import QDate
+            self.global_prod.setDate(QDate.currentDate())
+            self.global_exp.setDate(QDate.currentDate().addYears(1))
+
+            dh.addWidget(QLabel(tr("production_date") + ":"))
+            dh.addWidget(self.global_prod)
+            dh.addWidget(QLabel(tr("expiry_date") + ":"))
+            dh.addWidget(self.global_exp)
+            dv.addLayout(dh)
+            self.layout.addWidget(self.date_group)
+
         # Enterprise Mapping Grid
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         container = QWidget()
         grid = QVBoxLayout(container)
 
-        target_fields = ['code', 'name', 'category', 'unit', 'min_stock', 'current_stock']
+        if self.wizard.target == "suppliers":
+            target_fields = ['name', 'phone', 'email', 'address']
+        elif self.wizard.target == "movements":
+            target_fields = ['code', 'name', 'quantity', 'price', 'production_date', 'expiry_date']
+        else:
+            target_fields = ['code', 'name', 'category', 'unit', 'min_stock', 'current_stock']
+
         self.combos = {}
 
         for field in target_fields:
@@ -108,10 +157,17 @@ class MappingPage(QWizardPage):
         self.layout.addWidget(scroll)
 
     def validatePage(self):
-        self.wizard.mapping = {f: c.currentText() for f, c in self.combos.items() if c.currentData() is not None or c.currentIndex() > 0}
-        if 'code' not in self.wizard.mapping or 'name' not in self.wizard.mapping:
-            QMessageBox.warning(self, tr("warning"), tr("mapping_required_fields"))
-            return False
+        self.wizard.mapping = {f: c.currentText() for f, c in self.combos.items() if c.currentIndex() > 0}
+
+        # Validation Logic
+        if self.wizard.target == "suppliers":
+            if 'name' not in self.wizard.mapping:
+                QMessageBox.warning(self, tr("warning"), tr("mapping_required_fields_suppliers"))
+                return False
+        else:
+            if 'code' not in self.wizard.mapping or 'name' not in self.wizard.mapping:
+                QMessageBox.warning(self, tr("warning"), tr("mapping_required_fields"))
+                return False
         return True
 
 class ValidationPage(QWizardPage):
@@ -163,6 +219,7 @@ class SuccessPage(QWizardPage):
         layout.addWidget(self.lbl)
         self.pbar = QProgressBar()
         layout.addWidget(self.pbar)
+        self.final_data = []
 
     def initializePage(self):
         # Final Execution
@@ -172,17 +229,29 @@ class SuccessPage(QWizardPage):
         self.pbar.setMaximum(total)
 
         count = 0
+        self.final_data = []
         for _, row in df.iterrows():
             data = {}
             for field, excel_col in mapping.items():
                 data[field] = row[excel_col]
 
-            # Use service to create item
             try:
-                self.wizard.service.create_item(data)
-                count += 1
+                if self.wizard.target == "suppliers":
+                    self.wizard.service.create_supplier(data)
+                    count += 1
+                elif self.wizard.target == "movements":
+                    # Smart Date Overrides
+                    if hasattr(self.wizard, 'global_prod'):
+                        data['production_date'] = data.get('production_date') or self.wizard.global_prod.date().toString("yyyy-MM-dd")
+                        data['expiry_date'] = data.get('expiry_date') or self.wizard.global_exp.date().toString("yyyy-MM-dd")
+                    self.final_data.append(data)
+                    count += 1
+                else:
+                    self.wizard.service.create_item(data)
+                    count += 1
+
                 self.pbar.setValue(count)
             except:
                 pass
 
-        self.lbl.setText(f"Successfully Imported {count} items!")
+        self.lbl.setText(f"Successfully Processed {count} records!")

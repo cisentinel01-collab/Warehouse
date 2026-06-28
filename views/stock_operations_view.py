@@ -235,13 +235,72 @@ class StockOperationsView(QWidget):
         main_layout.addWidget(scroll)
 
     def handle_smart_import(self):
-        from PySide6.QtWidgets import QFileDialog, QProgressDialog
+        from PySide6.QtWidgets import QFileDialog, QProgressDialog, QMenu
         from services.import_service import ImportService
         from views.import_verification_dialog import ImportVerificationDialog
         from workers.worker import Worker
         from PySide6.QtCore import QThreadPool
+        from views.import_wizard import EnterpriseImportWizard
 
-        file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف الفاتورة", "", "All Files (*.xlsx *.pdf *.xls)")
+        # Options for import
+        menu = QMenu(self)
+        ai_act = menu.addAction("AI OCR (PDF/Image)")
+        wiz_act = menu.addAction("Excel Import Wizard")
+
+        action = menu.exec(self.mapToGlobal(self.sender().pos()))
+        if not action: return
+
+        if action == wiz_act:
+            wiz = EnterpriseImportWizard(self.controller, target="movements", parent=self)
+            if wiz.exec():
+                # Process the wizard's final data into the operation table
+                import_results = wiz.currentPage().final_data
+                for item in import_results:
+                    # Map wizard data to operation list format
+                    # Search item by code
+                    sys_item = self.controller.get_item_by_code(item['code'])
+                    if sys_item:
+                        qty = float(item.get('quantity', 1))
+                        price = float(item.get('price', 0))
+
+                        entry = {
+                            "item_id": sys_item.id if hasattr(sys_item, 'id') else sys_item['id'],
+                            "item_name": sys_item.name if hasattr(sys_item, 'name') else sys_item['name'],
+                            "item_code": sys_item.code if hasattr(sys_item, 'code') else sys_item['code'],
+                            "quantity": qty,
+                            "price": price,
+                            "unit": sys_item.unit if hasattr(sys_item, 'unit') else sys_item.get('unit', '')
+                        }
+
+                        if self.op_type == "IN":
+                            entry["batch_info"] = {
+                                "batch_number": "EXCEL_WIZ",
+                                "production_date": item.get('production_date'),
+                                "expiry_date": item.get('expiry_date')
+                            }
+
+                        self.items_to_move.append(entry)
+
+                        # Add to table
+                        row = self.table.rowCount()
+                        self.table.insertRow(row)
+                        self.table.setItem(row, 0, QTableWidgetItem(entry["item_code"]))
+                        self.table.setItem(row, 1, QTableWidgetItem(entry["item_name"]))
+                        self.table.setItem(row, 2, QTableWidgetItem(str(qty)))
+                        self.table.setItem(row, 3, QTableWidgetItem(str(price)))
+
+                        del_btn = QPushButton()
+                        del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
+                        del_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
+                        del_btn.setFixedSize(30, 30)
+                        del_btn.clicked.connect(lambda _, r=row: self.remove_item_from_list(r))
+                        self.table.setCellWidget(row, 4, del_btn)
+
+                self.update_summary()
+            return
+
+        # Original AI OCR Logic
+        file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف الفاتورة", "", "All Files (*.xlsx *.pdf *.xls *.png *.jpg)")
         if not file_path: return
 
         progress = QProgressDialog("جاري تحليل الملف بالذكاء الاصطناعي...", "إلغاء", 0, 0, self)

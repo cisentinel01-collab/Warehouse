@@ -247,9 +247,14 @@ class DashboardView(QWidget):
         return card
 
     def refresh(self):
-        try:
-            stats = self.service.get_stats()
+        from workers.worker import Worker
+        from PySide6.QtCore import QThreadPool
+        worker = Worker(self.service.get_stats)
+        worker.signals.result.connect(self.on_stats_loaded)
+        QThreadPool.globalInstance().start(worker)
 
+    def on_stats_loaded(self, stats):
+        try:
             # Update Cards
             self.total_items_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('total_items', 0)))
             self.low_stock_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('low_stock', 0)))

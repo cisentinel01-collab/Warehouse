@@ -35,6 +35,11 @@ class SuppliersView(QWidget):
         add_btn.clicked.connect(self.show_add_dialog)
         toolbar.addWidget(add_btn)
 
+        import_btn = QPushButton(tr("import_excel"))
+        import_btn.setObjectName("SecondaryButton")
+        import_btn.clicked.connect(self.handle_import)
+        toolbar.addWidget(import_btn)
+
         layout.addLayout(toolbar)
 
         # Table
@@ -174,6 +179,12 @@ class SuppliersView(QWidget):
             return
         if self.service.update_supplier(s_id, data):
             dialog.accept()
+            self.refresh()
+
+    def handle_import(self):
+        from views.import_wizard import EnterpriseImportWizard
+        wizard = EnterpriseImportWizard(self.service, target="suppliers", parent=self)
+        if wizard.exec():
             self.refresh()
 
     def handle_search(self):

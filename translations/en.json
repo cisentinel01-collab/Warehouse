@@ -129,5 +129,8 @@
   "mapping_required_fields": "SKU and Name are mandatory mappings.",
   "confirm": "Confirmation",
   "proceed_with_errors": "There are errors in the data. Do you want to skip invalid rows and proceed?",
-  "ready_to_import": "Data validated. Starting batch import..."
+  "ready_to_import": "Data validated. Starting batch import...",
+  "global_batch_dates": "Apply Global Dates (Override)",
+  "mapping_required_fields_suppliers": "Supplier Name is a mandatory mapping.",
+  "loading_data_wait": "Analyzing file in background, please wait..."
 }

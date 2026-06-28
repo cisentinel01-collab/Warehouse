@@ -74,7 +74,7 @@ def seed_data():
     # 5. Generate Sample Movements (Invoices)
     from models.inventory import Movement, MovementItem
     import random
-    from datetime import timedelta
+    from datetime import datetime, timedelta
 
     all_items = db_session.query(Item).all()
     all_suppliers = db_session.query(Supplier).all()
