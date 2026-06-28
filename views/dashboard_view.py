@@ -188,13 +188,20 @@ class DashboardView(QWidget):
         top_vbox.addStretch()
         bottom_layout.addWidget(top_items_frame, 1)
 
-        # Live Feed (Level 7)
+        # Live Feed (Level 9)
         live_frame = QFrame()
         live_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 20px;")
         live_vbox = QVBoxLayout(live_frame)
+
+        live_h = QHBoxLayout()
         live_header = QLabel(tr("live_movement_feed"))
         live_header.setStyleSheet("color: #d4af37; font-weight: bold; font-size: 14px;")
-        live_vbox.addWidget(live_header)
+        live_h.addWidget(live_header)
+
+        view_all_btn = QPushButton(tr("view_analysis"))
+        view_all_btn.setStyleSheet("color: #d4af37; font-size: 11px; border: none; text-decoration: underline;")
+        live_h.addWidget(view_all_btn, 0, Qt.AlignRight)
+        live_vbox.addLayout(live_h)
 
         self.live_feed_list = QVBoxLayout()
         live_vbox.addLayout(self.live_feed_list)
@@ -334,7 +341,7 @@ class DashboardView(QWidget):
                 child = self.live_feed_list.takeAt(0)
                 if child.widget(): child.widget().deleteLater()
 
-            for m in stats.get('live_feed', []):
+            for m in stats.get('live_feed', [])[:7]: # Limit to 7 items
                 color = "#27ae60" if m['type'] == 'IN' else "#e74c3c"
                 m_type_txt = tr("inbound") if m['type'] == 'IN' else tr("outbound")
                 feed_row = QLabel(f"[{m['time']}] {m_type_txt}: {m['ref']} ({int(m['qty'])} items)")

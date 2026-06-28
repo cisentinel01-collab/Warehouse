@@ -100,6 +100,12 @@ def main():
     is_new_system = db.query(Item).count() == 0
     db.close()
 
+    def on_opening_balance_needed():
+        from views.import_wizard import EnterpriseImportWizard
+        from services.item_service import ItemService
+        wiz = EnterpriseImportWizard(ItemService(Session()), is_opening_balance=True)
+        wiz.exec()
+
     login = LoginView()
     login.login_success.connect(on_login_success)
     login.show()

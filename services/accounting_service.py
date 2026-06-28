@@ -3,9 +3,14 @@ from models.accounting import JournalEntry, JournalItem, Account
 from datetime import datetime
 from app_logging.app_logger import app_logger
 
+from models.accounting import Account, Journal, JournalEntry, JournalItem
+
 class AccountingService:
     def __init__(self, db: Session):
         self.db = db
+
+    def get_accounts(self):
+        return self.db.query(Account).all()
 
     def create_entry(self, journal_id: int, date: datetime, ref: str, items: list) -> JournalEntry:
         """
@@ -36,7 +41,8 @@ class AccountingService:
                 )
                 self.db.add(ji)
 
-            self.db.commit()
+            # Removed commit to allow parent transaction (e.g. StockService) to control atomic scope
+            self.db.flush()
             app_logger.info(f"Journal Entry created: {entry.name}")
             return entry
         except Exception as e:

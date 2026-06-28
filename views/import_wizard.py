@@ -7,11 +7,12 @@ import pandas as pd
 from utils.translation_manager import tr, tr_manager
 
 class EnterpriseImportWizard(QWizard):
-    def __init__(self, service, target="items", parent=None, is_opening_balance=False):
+    def __init__(self, service, target="items", parent=None, is_opening_balance=False, prefilled_data=None):
         super().__init__(parent)
         self.service = service
         self.target = target # "items", "suppliers", "movements"
         self.is_opening_balance = is_opening_balance
+        self.import_data = prefilled_data
         self.setWindowTitle(tr("import_wizard") + (" - " + tr("opening_balance") if is_opening_balance else ""))
         self.resize(1100, 800)
         # Center the wizard on screen
@@ -42,14 +43,22 @@ class UploadPage(QWizardPage):
         layout = QVBoxLayout(self)
 
         self.btn = QPushButton(tr("select_excel_file"))
+        self.btn.setObjectName("PrimaryButton")
         self.btn.clicked.connect(self.load_file)
         layout.addWidget(self.btn)
 
         self.file_label = QLabel(tr("no_file_selected"))
+        self.file_label.setStyleSheet("color: #2c3e50; font-weight: bold;")
         layout.addWidget(self.file_label)
 
         self.preview = QTableWidget()
+        self.preview.setStyleSheet("background-color: #fdfdfd; color: black; border: 1px solid #ddd;")
         layout.addWidget(self.preview)
+
+    def initializePage(self):
+        if self.wizard.import_data is not None:
+            self.file_label.setText("AI Prefilled Data")
+            self.show_preview()
 
     def load_file(self):
         from workers.worker import Worker

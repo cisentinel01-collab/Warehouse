@@ -16,17 +16,18 @@ class SuppliersView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
+        from utils.translation_manager import tr
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Toolbar
         toolbar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("بحث عن مورد...")
+        self.search_input.setPlaceholderText(tr("search"))
         self.search_input.textChanged.connect(self.handle_search)
         toolbar.addWidget(self.search_input)
 
-        add_btn = QPushButton("إضافة مورد")
+        add_btn = QPushButton(tr("suppliers"))
         add_btn.setObjectName("PrimaryButton")
         add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
         if not AuthManager.has_permission('suppliers', 'add'):
@@ -47,10 +48,14 @@ class SuppliersView(QWidget):
         self.view.setEditTriggers(QTableView.NoEditTriggers)
         self.view.setSelectionBehavior(QTableView.SelectRows)
         self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.view.customContextMenuRequested.connect(self.show_context_menu)
+        self.view.doubleClicked.connect(self.handle_analysis)
         layout.addWidget(self.view)
 
-        self.headers = ["name", "phone", "email", "address"]
-        self.model = EnterpriseTableModel([], self.headers)
+        self.headers = ["name", "phone", "email", "address", "actions"]
+        self.translated_headers = [tr("item_name"), tr("phone"), "Email", tr("address"), tr("actions")]
+        self.model = EnterpriseTableModel([], self.headers, self.translated_headers)
         self.view.setModel(self.model)
 
         self.refresh()
@@ -74,46 +79,6 @@ class SuppliersView(QWidget):
             for s in suppliers
         ]
         self.model.update_data(data)
-
-    def setup_ui(self):
-        from utils.translation_manager import tr
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-
-        # Toolbar
-        toolbar = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText(tr("search"))
-        self.search_input.textChanged.connect(self.handle_search)
-        toolbar.addWidget(self.search_input)
-
-        add_btn = QPushButton(tr("suppliers"))
-        add_btn.setObjectName("PrimaryButton")
-        add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
-        if not AuthManager.has_permission('suppliers', 'add'):
-            add_btn.setEnabled(False)
-
-        add_btn.clicked.connect(self.show_add_dialog)
-        toolbar.addWidget(add_btn)
-
-        layout.addLayout(toolbar)
-
-        # Table
-        self.view = QTableView()
-        self.view.setEditTriggers(QTableView.NoEditTriggers)
-        self.view.setSelectionBehavior(QTableView.SelectRows)
-        self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.view.customContextMenuRequested.connect(self.show_context_menu)
-        self.view.doubleClicked.connect(self.handle_analysis)
-        layout.addWidget(self.view)
-
-        self.headers = ["name", "phone", "email", "address", "actions"]
-        self.translated_headers = [tr("item_name"), tr("phone"), "Email", tr("address"), tr("actions")]
-        self.model = EnterpriseTableModel([], self.headers, self.translated_headers)
-        self.view.setModel(self.model)
-
-        self.refresh()
 
     def show_context_menu(self, pos):
         from PySide6.QtWidgets import QMenu

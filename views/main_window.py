@@ -10,6 +10,7 @@ from views.suppliers_view import SuppliersView
 from views.stock_operations_view import StockOperationsView
 from views.reports_view import ReportsView
 from views.user_management_view import UserManagementView
+from views.accounting_view import AccountingView
 from views.settings_view import SettingsView
 from views.purchase_view import PurchaseView
 from views.locations_view import LocationsView
@@ -22,6 +23,7 @@ from controllers.user_controller import UserController
 from controllers.purchase_controller import PurchaseController
 from controllers.device_controller import DeviceController
 from services.report_service import ReportService
+from services.accounting_service import AccountingService
 from services.item_service import ItemService
 from services.supplier_service import SupplierService
 from database.session import Session
@@ -73,6 +75,7 @@ class MainWindow(QMainWindow):
             self.users_view = UserManagementView(UserController(self.db))
             self.devices_view = DeviceManagementView(DeviceController(self.db))
             self.settings_view = SettingsView()
+            self.accounting_view = AccountingView(AccountingService(self.db))
             self.locations_view = LocationsView()
             self.purchase_view = PurchaseView(PurchaseController(self.db))
         except Exception as e:
@@ -97,10 +100,18 @@ class MainWindow(QMainWindow):
             main_widget = QWidget()
             self.setCentralWidget(main_widget)
 
-        # Clear existing layout if any
+        # Clear existing layout if any (PySide6 compatible way)
         if main_widget.layout():
-            import sip
-            sip.delete(main_widget.layout())
+            # In PySide6, setting a new layout on a widget that already has one
+            # will automatically delete the old one or we can explicitly orphan it.
+            # The safest way is to delete the layout object itself.
+            old_layout = main_widget.layout()
+            # To truly clear it, we remove all items
+            while old_layout.count():
+                item = old_layout.takeAt(0)
+                if item.widget(): item.widget().deleteLater()
+            import shiboken
+            shiboken.delete(old_layout)
 
         layout = QHBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -132,6 +143,7 @@ class MainWindow(QMainWindow):
         self.create_nav_button("purchase", tr("purchase"), "fa5s.shopping-cart")
         self.create_nav_button("reports", tr("reports"), "fa5s.file-alt")
         self.create_nav_button("users", tr("users"), "fa5s.users")
+        self.create_nav_button("accounting", tr("accounting"), "fa5s.calculator")
         self.create_nav_button("devices", tr("devices"), "fa5s.desktop")
         self.create_nav_button("settings", tr("settings"), "fa5s.cog")
 
@@ -211,6 +223,7 @@ class MainWindow(QMainWindow):
                 "users": getattr(self, "users_view", None),
                 "devices": getattr(self, "devices_view", None),
                 "settings": getattr(self, "settings_view", None),
+                "accounting": getattr(self, "accounting_view", None),
                 "locations": getattr(self, "locations_view", None),
                 "purchase": getattr(self, "purchase_view", None),
             }
