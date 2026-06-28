@@ -187,6 +187,7 @@ class StockOperationsView(QWidget):
         self.table.setMinimumHeight(300)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_table_context_menu)
+        self.table.doubleClicked.connect(self.handle_table_double_click)
         table_layout.addWidget(self.table)
 
         clear_btn = QPushButton(tr("clear_all"))
@@ -553,6 +554,24 @@ class StockOperationsView(QWidget):
             self.items_to_move.pop(row)
             self.table.removeRow(row)
             self.update_summary()
+
+    def handle_table_double_click(self, index):
+        row = index.row()
+        item_data = self.items_to_move[row]
+
+        # Simple prompt to edit quantity/price
+        new_qty, ok1 = QInputDialog.getInt(self, tr("edit"), tr("quantity"), item_data['quantity'], 1, 1000000)
+        if not ok1: return
+
+        new_price, ok2 = QInputDialog.getDouble(self, tr("edit"), tr("unit_price"), item_data['price'], 0, 1000000, 2)
+        if not ok2: return
+
+        item_data['quantity'] = new_qty
+        item_data['price'] = new_price
+
+        self.table.setItem(row, 2, QTableWidgetItem(str(new_qty)))
+        self.table.setItem(row, 3, QTableWidgetItem(str(new_price)))
+        self.update_summary()
 
     def clear_list(self):
         if self.items_to_move:

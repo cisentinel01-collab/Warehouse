@@ -89,9 +89,10 @@ class ImportService:
                 if not name_val or any(x in str(name_val).lower() for x in ['total', 'sum', 'إجمالي', 'مجموع']): continue
 
                 def clean_date(val):
-                    if pd.isna(val) or val == "": return None
+                    if pd.isna(val) or val == "" or str(val).lower() == "none": return None
                     try:
-                        return pd.to_datetime(val).strftime("%Y-%m-%d")
+                        # Advanced date parsing with format detection
+                        return pd.to_datetime(val, errors='coerce').strftime("%Y-%m-%d")
                     except: return None
 
                 results.append({

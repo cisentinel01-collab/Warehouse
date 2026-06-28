@@ -14,6 +14,9 @@ class EnterpriseImportWizard(QWizard):
         self.is_opening_balance = is_opening_balance
         self.setWindowTitle(tr("import_wizard") + (" - " + tr("opening_balance") if is_opening_balance else ""))
         self.resize(1100, 800)
+        # Center the wizard on screen
+        if parent:
+            self.move(parent.window().frameGeometry().center() - self.frameGeometry().center())
         self.setWizardStyle(QWizard.ModernStyle)
         self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
 
@@ -188,20 +191,37 @@ class ValidationPage(QWizardPage):
         self.table.setHorizontalHeaderLabels(list(mapping.keys()) + ["Status"])
 
         self.errors = []
+        # Optimization: Fetch existing codes to check duplicates
+        existing_codes = []
+        if self.wizard.target == "items":
+            from database.session import Session
+            from models.inventory import Item
+            db = Session()
+            existing_codes = [c[0] for c in db.query(Item.code).all()]
+            db.close()
+
         for idx, row in df.iterrows():
             status = "✅ OK"
+            row_err = False
             for col_idx, (field, excel_col) in enumerate(mapping.items()):
                 val = row[excel_col]
                 item = QTableWidgetItem(str(val))
 
                 # Validation Logic
-                if field == 'code' and pd.isna(val):
-                    status = "❌ Missing Code"; self.errors.append(idx)
-                    item.setBackground(Qt.red)
+                if field == 'code':
+                    if pd.isna(val):
+                        status = "❌ Missing Code"; row_err = True
+                        item.setBackground(Qt.red)
+                    elif str(val) in existing_codes:
+                        status = "⚠️ Duplicate (Will Update)";
+                        item.setBackground(Qt.yellow)
+
                 if field == 'current_stock' and pd.isna(val):
                     val = 0.0
 
                 self.table.setItem(idx, col_idx, item)
+
+            if row_err: self.errors.append(idx)
             self.table.setItem(idx, len(mapping), QTableWidgetItem(status))
 
     def validatePage(self):

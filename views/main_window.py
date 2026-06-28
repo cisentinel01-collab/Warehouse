@@ -38,8 +38,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("American Marine Services - ERP")
         self.resize(1280, 800)
 
-        # Immediate Direction Sync
-        self.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+        # 1. Immediate Direction Sync BEFORE layout construction
+        is_rtl = tr_manager.is_rtl
+        self.setLayoutDirection(Qt.RightToLeft if is_rtl else Qt.LeftToRight)
+        from PySide6.QtWidgets import QApplication
+        QApplication.instance().setLayoutDirection(Qt.RightToLeft if is_rtl else Qt.LeftToRight)
 
         try:
             self.db = Session()
