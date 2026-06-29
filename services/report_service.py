@@ -143,15 +143,24 @@ class ReportService:
         workbook  = writer.book
         worksheet = writer.sheets['Inventory']
 
-        # Corporate Formatting
+        # Corporate Formatting (Pro Max)
         header_fmt = workbook.add_format({
-            'bold': True, 'text_wrap': True, 'valign': 'top',
+            'bold': True, 'text_wrap': True, 'valign': 'middle', 'align': 'center',
             'fg_color': '#2c3e50', 'font_color': 'white', 'border': 1
         })
 
+        cell_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'middle'})
+        alt_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'middle', 'fg_color': '#f2f3f4'})
+
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
-            worksheet.set_column(col_num, col_num, 20)
+            worksheet.set_column(col_num, col_num, 22)
+
+        for row in range(1, len(df) + 1):
+            worksheet.set_row(row, 22)
+            fmt = alt_fmt if row % 2 == 0 else cell_fmt
+            for col in range(len(df.columns)):
+                worksheet.write(row, col, df.iloc[row-1, col], fmt)
 
         writer.close()
         return filename

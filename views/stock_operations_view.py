@@ -257,17 +257,19 @@ class StockOperationsView(QWidget):
         from PySide6.QtCore import QThreadPool
         from views.import_wizard import EnterpriseImportWizard
 
-        file_path, _ = QFileDialog.getOpenFileName(self, "اختر ملف الفاتورة", "", "All Files (*.xlsx *.pdf *.xls *.png *.jpg)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Upload File", "", "All Files (*.xlsx *.pdf *.xls *.png *.jpg)")
         if not file_path: return
 
-        progress = QProgressDialog("جاري تحليل الملف بالذكاء الاصطناعي...", "إلغاء", 0, 0, self)
+        progress = QProgressDialog(tr("loading_data_wait"), tr("cancel"), 0, 0, self)
         progress.setStyleSheet("QProgressDialog { background-color: #1a1c23; color: white; }")
         progress.setWindowModality(Qt.WindowModal)
         progress.show()
 
         def run_extraction():
             service = ImportService()
-            if file_path.endswith('.pdf'):
+            if file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                return service.extract_from_image(file_path)
+            elif file_path.lower().endswith('.pdf'):
                 return service.extract_from_pdf(file_path)
             else:
                 return service.extract_from_excel(file_path)
@@ -275,17 +277,15 @@ class StockOperationsView(QWidget):
         def on_finished(data):
             progress.close()
             if not data:
-                QMessageBox.warning(self, "تنبيه", "لم يتم العثور على بيانات في الملف أو تنسيق الملف غير مدعوم")
+                QMessageBox.warning(self, tr("warning"), tr("no_data_found"))
                 return
 
-            # v12: Pass extracted AI data into the Wizard
+            # Hybrid Flow: AI Data -> Wizard
             import pandas as pd
             df = pd.DataFrame(data)
             wiz = EnterpriseImportWizard(self.controller, target="movements", parent=self, prefilled_data=df)
-            # Force mapping page skip or start at mapping
-            wiz.next()
+            wiz.next() # Jump to Mapping
             if wiz.exec():
-                # SuccessPage is the 4th page (index 3)
                 import_results = wiz.page(3).final_data
                 for item in import_results:
                     sys_item = self.controller.get_item_by_code(item['code'])
@@ -300,19 +300,30 @@ class StockOperationsView(QWidget):
                             "unit": sys_item.unit if hasattr(sys_item, 'unit') else sys_item.get('unit', '')
                         }
                         if self.op_type == "IN":
+                            # Use Wizard Global Dates if available
                             entry["batch_info"] = {
                                 "batch_number": "HYBRID_AI",
                                 "production_date": item.get('production_date'),
                                 "expiry_date": item.get('expiry_date')
                             }
                         self.items_to_move.append(entry)
+
                         row = self.table.rowCount()
                         self.table.insertRow(row)
                         self.table.setItem(row, 0, QTableWidgetItem(entry["item_code"]))
                         self.table.setItem(row, 1, QTableWidgetItem(entry["item_name"]))
                         self.table.setItem(row, 2, QTableWidgetItem(str(qty)))
                         self.table.setItem(row, 3, QTableWidgetItem(str(price)))
+
+                        del_btn = QPushButton()
+                        del_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
+                        del_btn.setStyleSheet("background-color: #e74c3c; border-radius: 5px;")
+                        del_btn.setFixedSize(30, 30)
+                        del_btn.clicked.connect(lambda _, r=row: self.remove_item_from_list(r))
+                        self.table.setCellWidget(row, 4, del_btn)
+
                 self.update_summary()
+            wiz.cleanup()
 
         worker = Worker(run_extraction)
         worker.signals.result.connect(on_finished)

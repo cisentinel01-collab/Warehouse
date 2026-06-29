@@ -80,9 +80,9 @@ def seed_data():
     all_suppliers = db_session.query(Supplier).all()
 
     if all_items and all_suppliers:
-        for i in range(1, 11):
+        for i in range(1, 21): # More movements for better charts
             m_type = 'IN' if i % 2 == 0 else 'OUT'
-            ref = f"{m_type}-SEED-{i:03d}"
+            ref = f"{m_type}-BATCH-{i:03d}"
 
             m = Movement(
                 type=m_type,
@@ -97,9 +97,9 @@ def seed_data():
             db_session.flush()
 
             total = 0
-            for _ in range(random.randint(1, 5)):
+            for _ in range(random.randint(1, 8)):
                 it = random.choice(all_items)
-                qty = random.randint(1, 20)
+                qty = random.randint(1, 50)
                 price = random.uniform(10, 500)
                 mi = MovementItem(movement_id=m.id, item_id=it.id, quantity=qty, price=price)
                 db_session.add(mi)

@@ -107,6 +107,7 @@
   "report_saved": "Report successfully saved to",
   "report_failed": "Report generation failed. Check system logs.",
   "error": "System Error",
+  "net_profit": "Estimated Net Profit",
   "document_preview": "Document Preview",
   "open_externally": "Open in System Viewer",
   "close": "Close",
@@ -136,5 +137,6 @@
   "trial_balance": "Trial Balance",
   "global_batch_dates": "Apply Global Dates (Override)",
   "mapping_required_fields_suppliers": "Supplier Name is a mandatory mapping.",
-  "loading_data_wait": "Analyzing file in background, please wait..."
+  "loading_data_wait": "Analyzing file in background, please wait...",
+  "no_data_found": "No data could be extracted from the file."
 }

@@ -90,21 +90,42 @@ class AccountingView(QWidget):
 
     def setup_dash_tab(self):
         layout = QVBoxLayout(self.dash_tab)
-        self.dash_group = QGroupBox("Financial Summary")
+        layout.setContentsMargins(30, 30, 30, 30)
+
+        from PySide6.QtCharts import QChart, QChartView, QPieSeries
+        from PySide6.QtGui import QPainter
+
+        self.chart = QChart()
+        self.chart.setTitle(tr("financial_summary"))
+        self.chart.setAnimationOptions(QChart.SeriesAnimations)
+        self.chart.setBackgroundBrush(Qt.NoBrush)
+
+        self.chart_view = QChartView(self.chart)
+        self.chart_view.setRenderHint(QPainter.Antialiasing)
+        self.chart_view.setMinimumHeight(400)
+
+        self.dash_group = QGroupBox(tr("financial_summary"))
+        self.dash_group.setStyleSheet("QGroupBox { font-size: 18px; color: #d4af37; border: 1px solid #333; padding-top: 25px; }")
         gl = QVBoxLayout(self.dash_group)
 
+        stat_h = QHBoxLayout()
         self.income_lbl = QLabel("Income: $0.00")
-        self.income_lbl.setStyleSheet("color: #27ae60; font-size: 20px; font-weight: bold;")
+        self.income_lbl.setStyleSheet("color: #27ae60; font-size: 22px; font-weight: bold;")
         self.expense_lbl = QLabel("Expense: $0.00")
-        self.expense_lbl.setStyleSheet("color: #e74c3c; font-size: 20px; font-weight: bold;")
+        self.expense_lbl.setStyleSheet("color: #e74c3c; font-size: 22px; font-weight: bold;")
         self.profit_lbl = QLabel("Net Profit: $0.00")
-        self.profit_lbl.setStyleSheet("color: #d4af37; font-size: 24px; font-weight: 1000;")
+        self.profit_lbl.setStyleSheet("color: #d4af37; font-size: 28px; font-weight: 1000;")
 
-        gl.addWidget(self.income_lbl)
-        gl.addWidget(self.expense_lbl)
-        gl.addWidget(self.profit_lbl)
+        stat_h.addWidget(self.income_lbl)
+        stat_h.addStretch()
+        stat_h.addWidget(self.expense_lbl)
+        stat_h.addStretch()
+        stat_h.addWidget(self.profit_lbl)
+
+        gl.addLayout(stat_h)
+        gl.addWidget(self.chart_view)
+
         layout.addWidget(self.dash_group)
-        layout.addStretch()
 
     def refresh(self):
         # Refresh COA
@@ -118,9 +139,20 @@ class AccountingView(QWidget):
         self.threadpool.start(worker_pl)
 
     def on_pl_loaded(self, pl_data):
-        self.income_lbl.setText(f"Total Income: ${pl_data['income']:,.2f}")
-        self.expense_lbl.setText(f"Total Expenses: ${pl_data['expense']:,.2f}")
-        self.profit_lbl.setText(f"Estimated Net Profit: ${pl_data['net_profit']:,.2f}")
+        self.income_lbl.setText(f"{tr('inbound')}: ${pl_data['income']:,.2f}")
+        self.expense_lbl.setText(f"{tr('outbound')}: ${pl_data['expense']:,.2f}")
+        self.profit_lbl.setText(f"{tr('net_profit')}: ${pl_data['net_profit']:,.2f}")
+
+        # Update Chart
+        from PySide6.QtCharts import QPieSeries
+        self.chart.removeAllSeries()
+        series = QPieSeries()
+        series.append(tr("inbound"), pl_data['income'])
+        series.append(tr("outbound"), pl_data['expense'])
+        if series.count() > 0:
+            series.slices()[0].setBrush(Qt.green)
+            series.slices()[1].setBrush(Qt.red)
+        self.chart.addSeries(series)
 
     def on_coa_loaded(self, accounts):
         data = [{"code": a.code, "name": a.name, "type": a.type, "active": str(a.active)} for a in accounts]

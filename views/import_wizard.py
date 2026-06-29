@@ -21,8 +21,10 @@ class EnterpriseImportWizard(QWizard):
             QLabel { color: #ecf0f1; font-size: 13px; }
             QPushButton { border-radius: 5px; padding: 8px 15px; }
             QTableWidget { background-color: #242730; color: #ecf0f1; border: 1px solid #333; gridline-color: #444; }
+            QTableWidget::item { color: #ecf0f1; }
             QHeaderView::section { background-color: #2c3e50; color: #d4af37; font-weight: bold; border: 1px solid #333; }
             QComboBox { background-color: #2c3e50; color: white; border: 1px solid #444; padding: 5px; }
+            QDateEdit { background-color: #2c3e50; color: white; border: 1px solid #444; }
         """)
         # Center the wizard on screen
         if parent:
