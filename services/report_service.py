@@ -226,7 +226,18 @@ class ReportService:
             title = tr("stock_in") if m_type == "IN" else tr("stock_out")
             elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
             elements.append(Paragraph(fmt(title), styles['Heading2']))
-            elements.append(Paragraph(fmt(f"{tr('total_value')}: {total_val:,.2f}"), styles['Heading3']))
+
+            # Profit Analytics in Reports (Pro Max)
+            total_in = self.db.query(func.sum(Movement.final_total)).filter(Movement.type == 'IN').scalar() or 0
+            total_out = self.db.query(func.sum(Movement.final_total)).filter(Movement.type == 'OUT').scalar() or 0
+            profit = total_out - total_in
+            margin = (profit / total_out * 100) if total_out > 0 else 0
+
+            summary_txt = f"{tr('total_value')}: {total_val:,.2f}"
+            if m_type == "OUT":
+                summary_txt += f" | Est. Profit: {profit:,.2f} ({margin:.1f}%)"
+
+            elements.append(Paragraph(fmt(summary_txt), styles['Heading3']))
             elements.append(Spacer(1, 20))
 
             headers = [tr("date"), tr("invoice_no"), tr("supplier" if m_type=="IN" else "issuing_entity"), tr("total")]

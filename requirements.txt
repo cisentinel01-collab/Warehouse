@@ -25,3 +25,4 @@ python-barcode
 python-multipart
 python-jose
 pyyaml
+shiboken6

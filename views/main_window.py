@@ -136,7 +136,7 @@ class MainWindow(QMainWindow):
         import os
         if os.path.exists("logo/logo.png"):
             from PySide6.QtGui import QPixmap
-            sidebar_logo.setPixmap(QPixmap("logo/logo.png").scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            sidebar_logo.setPixmap(QPixmap("logo/logo.png").scaled(180, 180, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
             sidebar_logo.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(60, 60))
         sidebar_logo.setAlignment(Qt.AlignCenter)
@@ -185,7 +185,7 @@ class MainWindow(QMainWindow):
         # Header
         header = QFrame()
         header.setObjectName("Header")
-        header.setFixedHeight(100) # Increased for better logo display
+        header.setFixedHeight(100)
         header_layout = QHBoxLayout(header)
         self.page_title = QLabel(tr("dashboard"))
         header_layout.addWidget(self.page_title)

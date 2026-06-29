@@ -43,7 +43,7 @@ class DashboardView(QWidget):
         import os
         if os.path.exists("logo/logo.png"):
             from PySide6.QtGui import QPixmap
-            logo_pix = QPixmap("logo/logo.png").scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_pix = QPixmap("logo/logo.png").scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo_icon.setPixmap(logo_pix)
         else:
             logo_icon.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(45, 45))
@@ -270,14 +270,9 @@ class DashboardView(QWidget):
             self.expiring_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('expiring_soon', 0)))
             self.total_value_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_value', 0):,.2f}")
 
-            # Calculate weekly summary
-            trends = stats.get('trends', [])
-            total_in = sum(t['in'] for t in trends)
-            total_out = sum(t['out'] for t in trends)
-            self.weekly_activity_card.findChild(QLabel, "ValueLabel").setText(f"{int(total_in)} / {int(total_out)}")
-
             # Update Bar Chart (Detailed Daily Trend)
             self.activity_chart.removeAllSeries()
+            trends = stats.get('trends', [])
             set_in = QBarSet(tr("inbound"))
             set_out = QBarSet(tr("outbound"))
 

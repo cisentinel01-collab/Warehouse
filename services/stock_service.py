@@ -74,12 +74,16 @@ class StockService:
                     lot_num = it.get('lot_number', 'DEFAULT')
                     if not lot_num: lot_num = 'DEFAULT'
 
+                    # Force dates if available or required
+                    p_date = it.get('production_date')
+                    e_date = it.get('expiry') or it.get('expiry_date')
+
                     lot = self.db.query(StockLot).filter(
                         StockLot.item_id == item.id,
                         StockLot.lot_number == lot_num
                     ).first()
                     if not lot:
-                        lot = StockLot(item_id=item.id, lot_number=lot_num, expiry_date=it.get('expiry'))
+                        lot = StockLot(item_id=item.id, lot_number=lot_num, expiry_date=e_date)
                         self.db.add(lot)
                         self.db.flush()
 
