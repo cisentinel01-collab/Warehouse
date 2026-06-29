@@ -61,13 +61,14 @@ class PrintPreviewDialog(QDialog):
 
     def open_file(self):
         import subprocess, platform
+        from PySide6.QtWidgets import QMessageBox
         try:
+            path = os.path.abspath(self.file_path)
             if platform.system() == 'Darwin':       # macOS
-                subprocess.call(('open', self.file_path))
+                subprocess.call(('open', path))
             elif platform.system() == 'Windows':    # Windows
-                os.startfile(self.file_path)
+                os.startfile(path)
             else:                                   # linux variants
-                subprocess.call(('xdg-open', self.file_path))
+                subprocess.call(('xdg-open', path))
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.critical(self, "خطأ", f"فشل فتح الملف: {str(e)}")
+            QMessageBox.critical(self, tr("error"), f"{tr('report_failed')}: {str(e)}")

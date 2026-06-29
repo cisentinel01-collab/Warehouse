@@ -42,6 +42,7 @@ class StockOperationsView(QWidget):
 
     def setup_operation_tab(self):
         from utils.translation_manager import tr, tr_manager
+        from PySide6.QtWidgets import QCompleter
         self.op_tab.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
 
         main_layout = QVBoxLayout(self.op_tab)
@@ -112,6 +113,11 @@ class StockOperationsView(QWidget):
         self.item_combo.setEditable(True)
         self.item_combo.setMinimumHeight(50)
         self.item_combo.setPlaceholderText(tr("search_items_placeholder"))
+
+        # Improved Resilient Completer
+        self.item_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.item_combo.completer().setCompletionMode(QCompleter.PopupCompletion)
+        self.item_combo.completer().setFilterMode(Qt.MatchContains)
 
         # Connect signals once here
         self.item_combo.lineEdit().textChanged.connect(self.on_item_combo_text_changed)
@@ -255,6 +261,7 @@ class StockOperationsView(QWidget):
         if not file_path: return
 
         progress = QProgressDialog("جاري تحليل الملف بالذكاء الاصطناعي...", "إلغاء", 0, 0, self)
+        progress.setStyleSheet("QProgressDialog { background-color: #1a1c23; color: white; }")
         progress.setWindowModality(Qt.WindowModal)
         progress.show()
 
@@ -275,8 +282,11 @@ class StockOperationsView(QWidget):
             import pandas as pd
             df = pd.DataFrame(data)
             wiz = EnterpriseImportWizard(self.controller, target="movements", parent=self, prefilled_data=df)
+            # Force mapping page skip or start at mapping
+            wiz.next()
             if wiz.exec():
-                import_results = wiz.currentPage().final_data
+                # SuccessPage is the 4th page (index 3)
+                import_results = wiz.page(3).final_data
                 for item in import_results:
                     sys_item = self.controller.get_item_by_code(item['code'])
                     if sys_item:
@@ -556,9 +566,12 @@ class StockOperationsView(QWidget):
 
     def apply_batch_dates(self):
         from PySide6.QtWidgets import QDialog, QFormLayout, QDateEdit
+        from utils.translation_manager import tr, tr_manager
         dialog = QDialog(self)
-        dialog.setWindowTitle("تطبيق تاريخ موحد")
+        dialog.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
+        dialog.setWindowTitle(tr("global_batch_dates"))
         l = QFormLayout(dialog)
+        l.setLabelAlignment(Qt.AlignRight if tr_manager.is_rtl else Qt.AlignLeft)
 
         p_date = QDateEdit()
         p_date.setCalendarPopup(True)
@@ -568,10 +581,11 @@ class StockOperationsView(QWidget):
         p_date.setDate(QDate.currentDate())
         e_date.setDate(QDate.currentDate().addYears(1))
 
-        l.addRow("تاريخ الانتاج:", p_date)
-        l.addRow("تاريخ الانتهاء:", e_date)
+        l.addRow(tr("production_date") + ":", p_date)
+        l.addRow(tr("expiry_date") + ":", e_date)
 
-        apply_btn = QPushButton("تطبيق")
+        apply_btn = QPushButton(tr("save"))
+        apply_btn.setObjectName("PrimaryButton")
         apply_btn.clicked.connect(dialog.accept)
         l.addRow(apply_btn)
 
@@ -582,7 +596,7 @@ class StockOperationsView(QWidget):
                 if 'batch_info' not in item: item['batch_info'] = {}
                 item['batch_info']['production_date'] = p_str
                 item['batch_info']['expiry_date'] = e_str
-            QMessageBox.information(self, "نجاح", "تم تطبيق التواريخ على جميع الأصناف في القائمة")
+            QMessageBox.information(self, tr("add_success"), tr("update_success"))
 
     def clear_list(self):
         if self.items_to_move:

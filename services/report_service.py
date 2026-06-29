@@ -193,8 +193,10 @@ class ReportService:
     def generate_movements_report(self, m_type, format="pdf"):
         from models.inventory import Movement, MovementItem, Settings
         from utils.translation_manager import tr, tr_manager
+        from sqlalchemy import func
 
         movements = self.db.query(Movement).filter(Movement.type == m_type).all()
+        total_val = self.db.query(func.sum(Movement.final_total)).filter(Movement.type == m_type).scalar() or 0
 
         if format == "excel":
             return self._gen_movements_excel(movements, m_type)
@@ -224,6 +226,7 @@ class ReportService:
             title = tr("stock_in") if m_type == "IN" else tr("stock_out")
             elements.append(Paragraph(f"<b>{fmt(settings.company_name)}</b>", styles['Title']))
             elements.append(Paragraph(fmt(title), styles['Heading2']))
+            elements.append(Paragraph(fmt(f"{tr('total_value')}: {total_val:,.2f}"), styles['Heading3']))
             elements.append(Spacer(1, 20))
 
             headers = [tr("date"), tr("invoice_no"), tr("supplier" if m_type=="IN" else "issuing_entity"), tr("total")]
@@ -276,11 +279,22 @@ class ReportService:
 
         workbook  = writer.book
         worksheet = writer.sheets['Movements']
-        header_fmt = workbook.add_format({'bold': True, 'fg_color': '#2c3e50', 'font_color': 'white', 'border': 1})
+
+        # Pro Design Excel
+        header_fmt = workbook.add_format({'bold': True, 'fg_color': '#2c3e50', 'font_color': 'white', 'border': 1, 'align': 'center'})
+        cell_fmt = workbook.add_format({'border': 1, 'align': 'center'})
+        money_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'center'})
 
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
             worksheet.set_column(col_num, col_num, 20)
+
+        for row_num in range(1, len(df) + 1):
+            worksheet.set_row(row_num, 20)
+            for col_num in range(len(df.columns)):
+                val = df.iloc[row_num-1, col_num]
+                fmt = money_fmt if isinstance(val, (int, float)) else cell_fmt
+                worksheet.write(row_num, col_num, val, fmt)
 
         writer.close()
         return filename

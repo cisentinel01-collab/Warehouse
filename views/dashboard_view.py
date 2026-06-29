@@ -43,7 +43,7 @@ class DashboardView(QWidget):
         import os
         if os.path.exists("logo/logo.png"):
             from PySide6.QtGui import QPixmap
-            logo_pix = QPixmap("logo/logo.png").scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_pix = QPixmap("logo/logo.png").scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo_icon.setPixmap(logo_pix)
         else:
             logo_icon.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(45, 45))
@@ -70,18 +70,18 @@ class DashboardView(QWidget):
         stats_h_layout.setSpacing(20)
 
         self.total_items_card = self.create_stat_card(tr("total_items"), "0", "fa5s.boxes", "#1a2a6c")
-        self.low_stock_card = self.create_stat_card(tr("low_stock"), "0", "fa5s.exclamation-triangle", "#e74c3c")
-        self.expiring_card = self.create_stat_card(tr("expiring_soon"), "0", "fa5s.calendar-times", "#f39c12")
-        self.total_value_card = self.create_stat_card(tr("total_value"), "0.00", "fa5s.money-bill-wave", "#27ae60")
-        self.weekly_activity_card = self.create_stat_card(tr("weekly_activity"), "0/0", "fa5s.exchange-alt", "#2980b9")
-        self.aging_items_card = self.create_stat_card(tr("aging_items"), "0", "fa5s.history", "#9b59b6")
+        self.total_in_card = self.create_stat_card(tr("stock_in"), "0", "fa5s.download", "#27ae60")
+        self.total_out_card = self.create_stat_card(tr("stock_out"), "0", "fa5s.upload", "#e67e22")
+        self.profit_card = self.create_stat_card("Est. Profit", "0", "fa5s.chart-line", "#f1c40f")
+        self.total_value_card = self.create_stat_card(tr("total_value"), "0.00", "fa5s.money-bill-wave", "#2ecc71")
+        self.expiring_card = self.create_stat_card(tr("expiring_soon"), "0", "fa5s.calendar-times", "#e74c3c")
 
         stats_h_layout.addWidget(self.total_items_card)
-        stats_h_layout.addWidget(self.low_stock_card)
-        stats_h_layout.addWidget(self.expiring_card)
+        stats_h_layout.addWidget(self.total_in_card)
+        stats_h_layout.addWidget(self.total_out_card)
+        stats_h_layout.addWidget(self.profit_card)
         stats_h_layout.addWidget(self.total_value_card)
-        stats_h_layout.addWidget(self.weekly_activity_card)
-        stats_h_layout.addWidget(self.aging_items_card)
+        stats_h_layout.addWidget(self.expiring_card)
         layout.addLayout(stats_h_layout)
 
         # Middle Section (Charts)
@@ -264,10 +264,11 @@ class DashboardView(QWidget):
         try:
             # Update Cards
             self.total_items_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('total_items', 0)))
-            self.low_stock_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('low_stock', 0)))
+            self.total_in_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_in', 0):,.0f}")
+            self.total_out_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_out', 0):,.0f}")
+            self.profit_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('profit_est', 0):,.0f}")
             self.expiring_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('expiring_soon', 0)))
             self.total_value_card.findChild(QLabel, "ValueLabel").setText(f"{stats.get('total_value', 0):,.2f}")
-            self.aging_items_card.findChild(QLabel, "ValueLabel").setText(str(stats.get('aging_items', 0)))
 
             # Calculate weekly summary
             trends = stats.get('trends', [])

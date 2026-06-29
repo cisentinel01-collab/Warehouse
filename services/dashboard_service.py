@@ -64,16 +64,21 @@ class DashboardService:
         for i in range(6, -1, -1):
             day = (datetime.now() - timedelta(days=i)).date()
             in_qty = self.db.execute(text(
-                "SELECT SUM(mi.quantity) FROM movement_items mi JOIN movements m ON mi.movement_id = m.id "
+                "SELECT SUM(mi.quantity * mi.price) FROM movement_items mi JOIN movements m ON mi.movement_id = m.id "
                 "WHERE m.type = 'IN' AND DATE(m.date) = :d"
             ), {"d": day}).scalar() or 0
             out_qty = self.db.execute(text(
-                "SELECT SUM(mi.quantity) FROM movement_items mi JOIN movements m ON mi.movement_id = m.id "
+                "SELECT SUM(mi.quantity * mi.price) FROM movement_items mi JOIN movements m ON mi.movement_id = m.id "
                 "WHERE m.type = 'OUT' AND DATE(m.date) = :d"
             ), {"d": day}).scalar() or 0
             trends.append({"date": day.strftime("%m/%d"), "in": float(in_qty), "out": float(out_qty)})
 
-        # 3. Beast Mode Analytics (Level 6)
+        # 3. Profit Analytics
+        total_in = self.db.query(func.sum(Movement.final_total)).filter(Movement.type == 'IN').scalar() or 0
+        total_out = self.db.query(func.sum(Movement.final_total)).filter(Movement.type == 'OUT').scalar() or 0
+        profit_est = total_out - total_in # Simplistic but actionable
+
+        # 4. Beast Mode Analytics (Level 6)
         # Top Moving Items (Last 30 days - By Volume)
         last_month = datetime.now() - timedelta(days=30)
         top_items_res = self.db.execute(text("""
@@ -134,6 +139,9 @@ class DashboardService:
             "expiring_soon": expiring_soon_count,
             "expiring_details": expiring_details,
             "total_value": float(total_value),
+            "total_in": float(total_in),
+            "total_out": float(total_out),
+            "profit_est": float(profit_est),
             "trends": trends,
             "top_moving": top_moving,
             "top_supplier": top_supplier,

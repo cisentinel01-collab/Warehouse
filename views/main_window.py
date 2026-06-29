@@ -127,12 +127,27 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(0, 20, 0, 20)
         sidebar_layout.setSpacing(5)
 
-        # Logo/Brand
+        # Logo/Brand (Sidebar)
         from utils.translation_manager import tr, tr_manager
+        brand_container = QFrame()
+        brand_vbox = QVBoxLayout(brand_container)
+
+        sidebar_logo = QLabel()
+        import os
+        if os.path.exists("logo/logo.png"):
+            from PySide6.QtGui import QPixmap
+            sidebar_logo.setPixmap(QPixmap("logo/logo.png").scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            sidebar_logo.setPixmap(qta.icon("fa5s.shield-alt", color="#d4af37").pixmap(60, 60))
+        sidebar_logo.setAlignment(Qt.AlignCenter)
+        brand_vbox.addWidget(sidebar_logo)
+
         brand_label = QLabel("AMS FREEZONE")
-        brand_label.setStyleSheet("color: #d4af37; font-size: 24px; font-weight: bold; margin-bottom: 20px; padding: 10px;")
+        brand_label.setStyleSheet("color: #d4af37; font-size: 20px; font-weight: bold; margin-bottom: 10px;")
         brand_label.setAlignment(Qt.AlignCenter)
-        sidebar_layout.addWidget(brand_label)
+        brand_vbox.addWidget(brand_label)
+
+        sidebar_layout.addWidget(brand_container)
         self.nav_buttons = {}
         self.create_nav_button("dashboard", tr("dashboard"), "fa5s.chart-line")
         self.create_nav_button("items", tr("items"), "fa5s.boxes")
@@ -170,6 +185,7 @@ class MainWindow(QMainWindow):
         # Header
         header = QFrame()
         header.setObjectName("Header")
+        header.setFixedHeight(100) # Increased for better logo display
         header_layout = QHBoxLayout(header)
         self.page_title = QLabel(tr("dashboard"))
         header_layout.addWidget(self.page_title)

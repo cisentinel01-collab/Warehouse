@@ -19,6 +19,11 @@ class AccountingView(QWidget):
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
 
+        # 0. Dashboard
+        self.dash_tab = QWidget()
+        self.setup_dash_tab()
+        self.tabs.addTab(self.dash_tab, tr("dashboard"))
+
         # 1. Chart of Accounts
         self.coa_tab = QWidget()
         self.setup_coa_tab()
@@ -36,8 +41,19 @@ class AccountingView(QWidget):
 
     def setup_coa_tab(self):
         layout = QVBoxLayout(self.coa_tab)
+
+        # Action Bar
+        actions = QHBoxLayout()
+        add_acc = QPushButton(tr("add_item")) # Re-using key for "Add Account"
+        add_acc.setObjectName("PrimaryButton")
+        actions.addWidget(add_acc)
+        actions.addStretch()
+        layout.addLayout(actions)
+
         self.coa_view = QTableView()
         self.coa_view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.coa_view.setAlternatingRowColors(True)
+        self.coa_view.setStyleSheet("QTableView { background-color: #1a1c23; color: white; }")
         layout.addWidget(self.coa_view)
 
         headers = ["code", "name", "type", "active"]
@@ -71,6 +87,40 @@ class AccountingView(QWidget):
         worker = Worker(self.service.get_accounts)
         worker.signals.result.connect(self.on_coa_loaded)
         self.threadpool.start(worker)
+
+    def setup_dash_tab(self):
+        layout = QVBoxLayout(self.dash_tab)
+        self.dash_group = QGroupBox("Financial Summary")
+        gl = QVBoxLayout(self.dash_group)
+
+        self.income_lbl = QLabel("Income: $0.00")
+        self.income_lbl.setStyleSheet("color: #27ae60; font-size: 20px; font-weight: bold;")
+        self.expense_lbl = QLabel("Expense: $0.00")
+        self.expense_lbl.setStyleSheet("color: #e74c3c; font-size: 20px; font-weight: bold;")
+        self.profit_lbl = QLabel("Net Profit: $0.00")
+        self.profit_lbl.setStyleSheet("color: #d4af37; font-size: 24px; font-weight: 1000;")
+
+        gl.addWidget(self.income_lbl)
+        gl.addWidget(self.expense_lbl)
+        gl.addWidget(self.profit_lbl)
+        layout.addWidget(self.dash_group)
+        layout.addStretch()
+
+    def refresh(self):
+        # Refresh COA
+        worker = Worker(self.service.get_accounts)
+        worker.signals.result.connect(self.on_coa_loaded)
+        self.threadpool.start(worker)
+
+        # Refresh P&L
+        worker_pl = Worker(self.service.get_profit_loss)
+        worker_pl.signals.result.connect(self.on_pl_loaded)
+        self.threadpool.start(worker_pl)
+
+    def on_pl_loaded(self, pl_data):
+        self.income_lbl.setText(f"Total Income: ${pl_data['income']:,.2f}")
+        self.expense_lbl.setText(f"Total Expenses: ${pl_data['expense']:,.2f}")
+        self.profit_lbl.setText(f"Estimated Net Profit: ${pl_data['net_profit']:,.2f}")
 
     def on_coa_loaded(self, accounts):
         data = [{"code": a.code, "name": a.name, "type": a.type, "active": str(a.active)} for a in accounts]

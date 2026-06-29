@@ -15,6 +15,15 @@ class EnterpriseImportWizard(QWizard):
         self.import_data = prefilled_data
         self.setWindowTitle(tr("import_wizard") + (" - " + tr("opening_balance") if is_opening_balance else ""))
         self.resize(1100, 800)
+        self.setStyleSheet("""
+            QWizard { background-color: #1a1c23; color: #ecf0f1; }
+            QWizardPage { background-color: #1a1c23; }
+            QLabel { color: #ecf0f1; font-size: 13px; }
+            QPushButton { border-radius: 5px; padding: 8px 15px; }
+            QTableWidget { background-color: #242730; color: #ecf0f1; border: 1px solid #333; gridline-color: #444; }
+            QHeaderView::section { background-color: #2c3e50; color: #d4af37; font-weight: bold; border: 1px solid #333; }
+            QComboBox { background-color: #2c3e50; color: white; border: 1px solid #444; padding: 5px; }
+        """)
         # Center the wizard on screen
         if parent:
             self.move(parent.window().frameGeometry().center() - self.frameGeometry().center())
@@ -48,11 +57,10 @@ class UploadPage(QWizardPage):
         layout.addWidget(self.btn)
 
         self.file_label = QLabel(tr("no_file_selected"))
-        self.file_label.setStyleSheet("color: #2c3e50; font-weight: bold;")
+        self.file_label.setStyleSheet("color: #d4af37; font-weight: bold;")
         layout.addWidget(self.file_label)
 
         self.preview = QTableWidget()
-        self.preview.setStyleSheet("background-color: #fdfdfd; color: black; border: 1px solid #ddd;")
         layout.addWidget(self.preview)
 
     def initializePage(self):
@@ -110,11 +118,14 @@ class MappingPage(QWizardPage):
         self.layout.addWidget(QLabel(tr("map_columns_info")))
 
         # Stock Operation Global Dates (Intelligent Batch Management)
+        from PySide6.QtWidgets import QGridLayout
         if self.wizard.target == "movements":
             self.date_group = QFrame()
-            self.date_group.setStyleSheet("background: #f1f1f1; border-radius: 10px; margin-bottom: 10px;")
+            self.date_group.setStyleSheet("background: #242730; border: 1px solid #d4af37; border-radius: 10px; margin-bottom: 10px;")
             dv = QVBoxLayout(self.date_group)
-            dv.addWidget(QLabel("<b>" + tr("global_batch_dates") + "</b>"))
+            header_lbl = QLabel(tr("global_batch_dates").upper())
+            header_lbl.setStyleSheet("color: #d4af37; font-weight: bold;")
+            dv.addWidget(header_lbl)
 
             dh = QHBoxLayout()
             self.global_prod = QDateEdit()
@@ -135,8 +146,10 @@ class MappingPage(QWizardPage):
         # Enterprise Mapping Grid
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("background: transparent; border: none;")
         container = QWidget()
-        grid = QVBoxLayout(container)
+        mapping_grid = QGridLayout(container)
+        mapping_grid.setSpacing(20)
 
         if self.wizard.target == "suppliers":
             target_fields = ['name', 'phone', 'email', 'address']
@@ -147,9 +160,11 @@ class MappingPage(QWizardPage):
 
         self.combos = {}
 
-        for field in target_fields:
-            h = QHBoxLayout()
-            h.addWidget(QLabel(tr(f"field_{field}") + ":"))
+        for idx, field in enumerate(target_fields):
+            lbl = QLabel(tr(f"field_{field}") + ":")
+            lbl.setStyleSheet("font-weight: bold; color: #d4af37;")
+            mapping_grid.addWidget(lbl, idx, 0)
+
             combo = QComboBox()
             combo.addItem("-- Select --", None)
             cols = self.wizard.import_data.columns.tolist()
@@ -162,8 +177,7 @@ class MappingPage(QWizardPage):
                 combo.setCurrentText(match)
 
             self.combos[field] = combo
-            h.addWidget(combo)
-            grid.addLayout(h)
+            mapping_grid.addWidget(combo, idx, 1)
 
         scroll.setWidget(container)
         self.layout.addWidget(scroll)
