@@ -116,9 +116,17 @@ class DashboardView(QWidget):
         ls_frame = QFrame()
         ls_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 15px;")
         ls_vbox = QVBoxLayout(ls_frame)
+
+        ls_h = QHBoxLayout()
         ls_header = QLabel(tr("low_stock_details").upper())
         ls_header.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 14px;")
-        ls_vbox.addWidget(ls_header)
+        ls_h.addWidget(ls_header)
+
+        self.view_ls_btn = QPushButton(tr("view_analysis"))
+        self.view_ls_btn.setStyleSheet("color: #d4af37; font-size: 10px; border: none; text-decoration: underline;")
+        self.view_ls_btn.setVisible(False)
+        ls_h.addWidget(self.view_ls_btn, 0, Qt.AlignRight)
+        ls_vbox.addLayout(ls_h)
 
         self.ls_list = QVBoxLayout()
         ls_vbox.addLayout(self.ls_list)
@@ -129,9 +137,17 @@ class DashboardView(QWidget):
         ex_frame = QFrame()
         ex_frame.setStyleSheet("background-color: #1c1e26; border-radius: 15px; padding: 15px;")
         ex_vbox = QVBoxLayout(ex_frame)
+
+        ex_h = QHBoxLayout()
         ex_header = QLabel(tr("expiring_details").upper())
         ex_header.setStyleSheet("color: #f39c12; font-weight: bold; font-size: 14px;")
-        ex_vbox.addWidget(ex_header)
+        ex_h.addWidget(ex_header)
+
+        self.view_ex_btn = QPushButton(tr("view_analysis"))
+        self.view_ex_btn.setStyleSheet("color: #d4af37; font-size: 10px; border: none; text-decoration: underline;")
+        self.view_ex_btn.setVisible(False)
+        ex_h.addWidget(self.view_ex_btn, 0, Qt.AlignRight)
+        ex_vbox.addLayout(ex_h)
 
         self.ex_list = QVBoxLayout()
         ex_vbox.addLayout(self.ex_list)
@@ -349,7 +365,9 @@ class DashboardView(QWidget):
                 child = self.ls_list.takeAt(0)
                 if child.widget(): child.widget().deleteLater()
 
-            for i in stats.get('low_stock_details', []):
+            ls_data = stats.get('low_stock_details', [])
+            self.view_ls_btn.setVisible(len(ls_data) > 7)
+            for i in ls_data[:7]:
                 row = QLabel(f"• {i['name']} ({i['stock']}) | {i['supplier']} | ${i['last_price']:,.2f}")
                 row.setStyleSheet("color: #ecf0f1; font-size: 12px; padding: 2px;")
                 self.ls_list.addWidget(row)
@@ -359,7 +377,9 @@ class DashboardView(QWidget):
                 child = self.ex_list.takeAt(0)
                 if child.widget(): child.widget().deleteLater()
 
-            for e in stats.get('expiring_details', []):
+            ex_data = stats.get('expiring_details', [])
+            self.view_ex_btn.setVisible(len(ex_data) > 7)
+            for e in ex_data[:7]:
                 row = QLabel(f"• {e['name']} (Lot: {e['lot']}) | Exp: {e['expiry']} | Qty: {e['qty']}")
                 row.setStyleSheet("color: #ecf0f1; font-size: 12px; padding: 2px;")
                 self.ex_list.addWidget(row)

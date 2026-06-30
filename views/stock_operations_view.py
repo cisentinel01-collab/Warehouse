@@ -256,6 +256,7 @@ class StockOperationsView(QWidget):
         from workers.worker import Worker
         from PySide6.QtCore import QThreadPool
         from views.import_wizard import EnterpriseImportWizard
+        from utils.translation_manager import tr
 
         file_path, _ = QFileDialog.getOpenFileName(self, "Upload File", "", "All Files (*.xlsx *.pdf *.xls *.png *.jpg)")
         if not file_path: return

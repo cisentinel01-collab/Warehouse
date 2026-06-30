@@ -26,3 +26,4 @@ python-multipart
 python-jose
 pyyaml
 shiboken6
+paddlepaddle-tiny
