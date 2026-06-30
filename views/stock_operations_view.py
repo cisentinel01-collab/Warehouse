@@ -1,3 +1,4 @@
+from utils.translation_manager import tr, tr_manager
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QPushButton, QLineEdit, QLabel,
                              QHeaderView, QComboBox, QSpinBox, QFormLayout,
@@ -25,7 +26,6 @@ class StockOperationsView(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        from utils.translation_manager import tr
         self.main_layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
         self.main_layout.addWidget(self.tabs)
@@ -41,7 +41,6 @@ class StockOperationsView(QWidget):
         self.tabs.addTab(self.history_tab, tr("history"))
 
     def setup_operation_tab(self):
-        from utils.translation_manager import tr, tr_manager
         from PySide6.QtWidgets import QCompleter
         self.op_tab.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
 
@@ -69,7 +68,6 @@ class StockOperationsView(QWidget):
         self.ref_input.setText(self.controller.generate_invoice_no(self.op_type))
         info_layout.addRow(tr("invoice_no") + ":", self.ref_input)
 
-        from utils.translation_manager import tr
         if self.op_type == "IN":
             self.supplier_combo = QComboBox()
             self.supplier_combo.setMinimumHeight(45)
@@ -256,24 +254,30 @@ class StockOperationsView(QWidget):
         from workers.worker import Worker
         from PySide6.QtCore import QThreadPool
         from views.import_wizard import EnterpriseImportWizard
-        from utils.translation_manager import tr
 
-        file_path, _ = QFileDialog.getOpenFileName(self, "Upload File", "", "All Files (*.xlsx *.pdf *.xls *.png *.jpg)")
+        file_path, _ = QFileDialog.getOpenFileName(self, tr("import_excel"), "", "Excel Files (*.xlsx *.xls)")
         if not file_path: return
 
-        progress = QProgressDialog(tr("loading_data_wait"), tr("cancel"), 0, 0, self)
-        progress.setStyleSheet("QProgressDialog { background-color: #1a1c23; color: white; }")
+        # Level 12 Professional Progress (Gold & Dark) with Determinate feedback
+        progress = QProgressDialog(tr("loading_data_wait"), tr("cancel"), 0, 100, self)
+        progress.setWindowTitle(tr("import_wizard"))
+        progress.setMinimumWidth(450)
+        progress.setStyleSheet("""
+            QProgressDialog { background-color: #1a1c23; color: white; border: 2px solid #d4af37; border-radius: 10px; }
+            QProgressBar { border: 2px solid #333; border-radius: 5px; text-align: center; color: white; font-weight: bold; height: 25px; }
+            QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #d4af37, stop:1 #f1c40f); width: 10px; margin: 0.5px; }
+            QPushButton { background-color: #c0392b; color: white; padding: 5px 15px; border-radius: 4px; }
+        """)
         progress.setWindowModality(Qt.WindowModal)
         progress.show()
 
         def run_extraction():
             service = ImportService()
-            if file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-                return service.extract_from_image(file_path)
-            elif file_path.lower().endswith('.pdf'):
-                return service.extract_from_pdf(file_path)
-            else:
-                return service.extract_from_excel(file_path)
+            # Pass progress callback to service for real percentage updates
+            return service.extract_from_excel(file_path, progress_callback=worker.signals.progress.emit)
+
+        worker = Worker(run_extraction)
+        worker.signals.progress.connect(progress.setValue)
 
         def on_finished(data):
             progress.close()
@@ -281,7 +285,7 @@ class StockOperationsView(QWidget):
                 QMessageBox.warning(self, tr("warning"), tr("no_data_found"))
                 return
 
-            # Hybrid Flow: AI Data -> Wizard
+            # Smart Import -> Wizard
             import pandas as pd
             df = pd.DataFrame(data)
             wiz = EnterpriseImportWizard(self.controller, target="movements", parent=self, prefilled_data=df)
@@ -303,7 +307,7 @@ class StockOperationsView(QWidget):
                         if self.op_type == "IN":
                             # Use Wizard Global Dates if available
                             entry["batch_info"] = {
-                                "batch_number": "HYBRID_AI",
+                                "batch_number": "IMPORT",
                                 "production_date": item.get('production_date'),
                                 "expiry_date": item.get('expiry_date')
                             }
@@ -326,7 +330,6 @@ class StockOperationsView(QWidget):
                 self.update_summary()
             wiz.cleanup()
 
-        worker = Worker(run_extraction)
         worker.signals.result.connect(on_finished)
         QThreadPool.globalInstance().start(worker)
 
@@ -390,7 +393,6 @@ class StockOperationsView(QWidget):
         from PySide6.QtWidgets import QTableView
         from views_components.enterprise_table_model import EnterpriseTableModel
         from PySide6.QtCore import QThreadPool
-        from utils.translation_manager import tr
 
         self.threadpool = QThreadPool.globalInstance()
         layout = QVBoxLayout(self.history_tab)
@@ -461,7 +463,6 @@ class StockOperationsView(QWidget):
             self.supplier_combo.addItem(s_name, s_id)
 
     def update_summary(self):
-        from utils.translation_manager import tr, tr_manager
         subtotal = sum(item['quantity'] * item.get('price', 0) for item in self.items_to_move)
         total_qty = sum(item['quantity'] for item in self.items_to_move)
         discount_pct = self.discount_input.value()
@@ -578,7 +579,6 @@ class StockOperationsView(QWidget):
 
     def apply_batch_dates(self):
         from PySide6.QtWidgets import QDialog, QFormLayout, QDateEdit
-        from utils.translation_manager import tr, tr_manager
         dialog = QDialog(self)
         dialog.setLayoutDirection(Qt.RightToLeft if tr_manager.is_rtl else Qt.LeftToRight)
         dialog.setWindowTitle(tr("global_batch_dates"))
@@ -766,7 +766,6 @@ class StockOperationsView(QWidget):
             QMessageBox.critical(self, "خطأ", f"فشل إتمام العملية: {str(e)}")
 
     def reset_form(self):
-        from utils.translation_manager import tr
         self.ref_input.setText(self.controller.generate_invoice_no(self.op_type))
         self.table.setRowCount(0)
         self.items_to_move = []

@@ -2,17 +2,20 @@ import pandas as pd
 import pdfplumber
 import re
 import os
-from typing import List, Dict
+from typing import List, Dict, Callable, Optional
+from thefuzz import fuzz, process
 
 class ImportService:
     def __init__(self):
         pass
 
-    def extract_from_excel(self, file_path: str) -> List[Dict]:
+    def extract_from_excel(self, file_path: str, progress_callback: Optional[Callable[[int], None]] = None) -> List[Dict]:
         """v5 Beast-Mode Extraction with structural intelligence and header discovery."""
-        from thefuzz import fuzz, process
         try:
+            if progress_callback: progress_callback(10)
             df = pd.read_excel(file_path, header=None)
+            if progress_callback: progress_callback(20)
+
             # Strategy 1: Data Cleaning (Drop empty perimeter)
             df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
 
@@ -41,7 +44,9 @@ class ImportService:
             }
 
             col_map = {}
-            for field, choices in target_fields.items():
+            total_fields = len(target_fields)
+            for idx, (field, choices) in enumerate(target_fields.items()):
+                if progress_callback: progress_callback(30 + int((idx / total_fields) * 20))
                 best_match = None
                 highest_score = 0
                 for col in df.columns:
@@ -56,7 +61,10 @@ class ImportService:
 
             # 3. Beast Pattern Fallback: If col_map is missing fields, scan row-by-row
             results = []
-            for idx, row in df.iterrows():
+            total_rows = len(df)
+            for idx, (row_idx, row) in enumerate(df.iterrows()):
+                if progress_callback and idx % 10 == 0:
+                    progress_callback(50 + int((idx / total_rows) * 45))
                 name_val = row.get(col_map.get('name')) if col_map.get('name') is not None else None
 
                 # If fuzzy matching failed, try brute force pattern matching on the row
@@ -103,6 +111,7 @@ class ImportService:
                     'production_date': clean_date(row.get(col_map.get('production_date'))),
                     'expiry_date': clean_date(row.get(col_map.get('expiry_date')))
                 })
+            if progress_callback: progress_callback(100)
             return results
         except Exception as e:
             print(f"v6 Hyper-Smart Excel Extraction Error: {e}")
