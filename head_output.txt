@@ -1,0 +1,19 @@
+from utils.translation_manager import tr
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+                             QTableWidgetItem, QPushButton, QLineEdit, QLabel,
+                             QHeaderView, QComboBox, QSpinBox, QFormLayout,
+                             QGroupBox, QMessageBox, QTabWidget, QDoubleSpinBox,
+                             QInputDialog, QDateEdit, QGridLayout, QScrollArea, QFrame)
+from PySide6.QtCore import Qt, Signal, QTimer
+import qtawesome as qta
+from utils.auth import AuthManager
+from database.session import Session
+
+class StockOperationsView(QWidget):
+    data_changed = Signal()
+
+    def __init__(self, controller, op_type="IN"):
+        super().__init__()
+        self.controller = controller
+        self.op_type = op_type # "IN" or "OUT"
+        self.items_to_move = []
